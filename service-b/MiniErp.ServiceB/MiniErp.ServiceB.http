@@ -1,0 +1,6 @@
+@MiniErp.ServiceB_HostAddress = http://localhost:5196
+
+GET {{MiniErp.ServiceB_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
