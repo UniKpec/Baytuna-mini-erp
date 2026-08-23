@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using MiniErp.ServiceB.Models;
-using MiniErp.ServiceB;
+using ServiceB.Models;
+using ServiceB;
 using System;
 using Microsoft.EntityFrameworkCore;
-namespace MiniErp.ServiceB.Controllers;
+namespace ServiceB.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

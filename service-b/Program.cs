@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using MiniErp.ServiceB;
+using ServiceB.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,14 +16,15 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// app.UseHttpsRedirection();
+
+app.MapGet("/health", () =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-
+    return Results.Ok(new { status = "ok" });
+});
 
 app.MapControllers();
 

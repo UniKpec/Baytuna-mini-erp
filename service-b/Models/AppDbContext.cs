@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using MiniErp.ServiceB.Models;
+using ServiceB.Models;
 
-namespace MiniErp.ServiceB;
+namespace ServiceB.Models;
 
 public class AppDbContext : DbContext
 {
