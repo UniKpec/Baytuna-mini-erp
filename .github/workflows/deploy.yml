@@ -30,7 +30,7 @@ jobs:
         with:
           context: ./service-a
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/mini-erp-service-a:latest
+          tags: ghcr.io/unikpec/mini-erp-service-a:latest
 
   deploy-service-a:
     needs: build-service-a
@@ -67,7 +67,7 @@ jobs:
         with:
           context: ./service-b
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/mini-erp-service-b:latest
+          tags: ghcr.io/unikpec/mini-erp-service-b:latest
 
   deploy-service-b:
     needs: build-service-b
