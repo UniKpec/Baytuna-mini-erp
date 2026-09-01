@@ -21,6 +21,7 @@ services:
 
   service-a:
     build: ./service-a
+    image: ghcr.io/unikpec/mini-erp-service-a:latest
     restart: unless-stopped
     ports:
       - "8000:8000"
