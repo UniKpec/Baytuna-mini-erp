@@ -8,7 +8,7 @@ services:
       ConnectionStrings__DefaultConnection: "Host=postgres-b;Port=5432;Database=MiniErpDb;Username=postgres;Password=${POSTGRES_B_PASSWORD}"
     depends_on:
       - postgres-b
-  
+
   postgres-b:
     image: postgres:18
     restart: unless-stopped
@@ -19,6 +19,28 @@ services:
     volumes:
       - postgres_b_data:/var/lib/postgresql
 
+  service-a:
+    build: ./service-a
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://erp:erp123@postgres-a:5432/service_a_db
+    depends_on:
+      - postgres-a
+    volumes:
+      - ./service-a:/app
+
+  postgres-a:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp123
+      POSTGRES_DB: service_a_db
+    volumes:
+      - postgres_a_data:/var/lib/postgresql/data
+
 volumes:
   postgres_b_data:
-
+  postgres_a_data:
