@@ -1,4 +1,4 @@
-namespace MiniErp.ServiceB.Models;
+namespace ServiceB.Models;
 
 public class Product
 {
