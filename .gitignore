@@ -2,4 +2,10 @@ node_modules/
 mini-erp-detayli-plan.md
 bin/
 obj/
+<<<<<<< HEAD
 .env
+=======
+.env
+mini-erp-detayli-plan (1).md
+database.md
+>>>>>>> e533b75dc7e5dc900cb0bb46b163cb17c31ea93d

@@ -1,0 +1,86 @@
+name: Deploy
+
+# main branch'ine her push'ta tetiklenir
+on:
+  push:
+    branches: [main]
+
+# GHCR'ye image push edebilmek için gerekli izin
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # --- Servis A: build + deploy, tamamen bağımsız ---
+  build-service-a:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: GHCR'ye giriş yap
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image'ı build et ve GHCR'ye push et
+        uses: docker/build-push-action@v5
+        with:
+          context: ./service-a
+          push: true
+          tags: ghcr.io/unikpec/mini-erp-service-a:latest
+
+  deploy-service-a:
+    needs: build-service-a
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH ile sadece service-a'yı güncelle
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/mini-erp
+            git pull origin main
+            docker compose pull service-a
+            docker compose up -d service-a
+
+  # --- Servis B: build + deploy, tamamen bağımsız ---
+  build-service-b:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: GHCR'ye giriş yap
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image'ı build et ve GHCR'ye push et
+        uses: docker/build-push-action@v5
+        with:
+          context: ./service-b
+          push: true
+          tags: ghcr.io/unikpec/mini-erp-service-b:latest
+
+  deploy-service-b:
+    needs: build-service-b
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH ile sadece service-b'yi güncelle
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/mini-erp
+            git pull origin main
+            docker compose pull service-b
+            docker compose up -d service-b
