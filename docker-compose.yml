@@ -2,8 +2,8 @@ services:
   service-b:
     image: ghcr.io/${GITHUB_OWNER}/mini-erp-service-b:latest
     restart: unless-stopped
-    expose:
-      - "8080"
+    ports:
+    - "8080:8080"
     environment:
       ConnectionStrings__DefaultConnection: "Host=postgres-b;Port=5432;Database=MiniErpDb;Username=postgres;Password=${POSTGRES_B_PASSWORD}"
     depends_on:
