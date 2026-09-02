@@ -19,10 +19,7 @@ public class Product
     public decimal AvgCost { get; set; }
     [Precision(12, 2)]
     public decimal SalePrice { get; set; }
-
     public int StockQuantity { get; set; }
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
