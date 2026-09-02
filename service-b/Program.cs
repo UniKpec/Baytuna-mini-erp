@@ -36,6 +36,7 @@ builder.Services
             )
         };
     });
+builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
