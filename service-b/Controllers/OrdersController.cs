@@ -68,6 +68,23 @@ public class OrdersController: ControllerBase
 
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
-        return Ok(order);
+
+        var response = new CreateOrderResponse
+        {
+            Id = order.Id,
+            Status = order.Status,
+            TotalAmount = order.TotalAmount,
+            CreatedBy = order.CreatedBy,
+            Items = order.Items.Select(item => new CreateOrderItemResponse
+            {
+                ProductId = item.ProductId,
+                ProductName = item.ProductNameSnapshot,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPriceSnapshot,
+                LineTotal = item.LineTotal
+            }).ToList()
+
+        };
+        return Ok(response);
     }
 }
