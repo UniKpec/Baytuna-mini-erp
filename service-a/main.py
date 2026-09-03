@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from database import get_db
 from models import Product as ProductModel, User as UserModel
-from auth import verify_password, create_access_token, hash_password
+from auth import verify_password, create_access_token, hash_password, require_admin, get_current_user
 
 app = FastAPI()
 
@@ -27,12 +27,12 @@ class UserLogin(BaseModel):
 
 
 @app.get("/products")
-def get_products(db: Session = Depends(get_db)):
+def get_products(db: Session = Depends(get_db), current_user: dict=Depends(get_current_user)):
     return db.query(ProductModel).all()
 
 
 @app.post("/products")
-def create_product(product: Product, db: Session = Depends(get_db)):
+def create_product(product: Product, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     new_product = ProductModel(name=product.name, price=product.price)
     db.add(new_product)
     db.commit()
@@ -41,22 +41,20 @@ def create_product(product: Product, db: Session = Depends(get_db)):
 
 
 @app.get("/products/{product_id}")
-def get_product_id(product_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_product_id(product_id: uuid.UUID, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     product = db.query(ProductModel).filter(ProductModel.id == product_id).first()
     if product is None:
         raise HTTPException(status_code=404, detail="Ürün bulunamadı.")
     return product
 
-
 @app.delete("/products/{product_id}")
-def delete_product(product_id: uuid.UUID, db: Session = Depends(get_db)):
+def delete_product(product_id: uuid.UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     product = db.query(ProductModel).filter(ProductModel.id == product_id).first()
     if product is None:
         raise HTTPException(status_code=404, detail="Ürün bulunamadı.")
     db.delete(product)
     db.commit()
     return {"message": "Ürün silindi."}
-
 
 @app.post("/auth/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
