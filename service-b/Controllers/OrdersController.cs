@@ -8,15 +8,17 @@ namespace ServiceB.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class OrdersController: ControllerBase
+public class OrdersController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IProductCatalogClient _productCatalogClient;
+    private readonly IStockReservationClient _stockReservationClient;
 
-    public OrdersController(AppDbContext context, IProductCatalogClient productCatalogClient)
+    public OrdersController(AppDbContext context, IProductCatalogClient productCatalogClient, IStockReservationClient stockReservationClient)
     {
         _context = context;
         _productCatalogClient = productCatalogClient;
+        _stockReservationClient = stockReservationClient;
     }
 
     [Authorize]
@@ -25,7 +27,7 @@ public class OrdersController: ControllerBase
     {
         var userIdClaim = User.FindFirst("user_id")?.Value;
 
-        if(!Guid.TryParse(userIdClaim, out var userId))
+        if (!Guid.TryParse(userIdClaim, out var userId))
         {
             return Unauthorized("Token içindeki user_id geçersiz");
         }
@@ -40,19 +42,19 @@ public class OrdersController: ControllerBase
 
         var order = new Order
         {
-             Id = Guid.NewGuid(),
-             CustomerId = request.CustomerId,
-             Status = "pending",
-             CreatedBy = userId,
-             CreatedAt = DateTime.UtcNow,
-             UpdatedAt = DateTime.UtcNow
-        };  
+            Id = Guid.NewGuid(),
+            CustomerId = request.CustomerId,
+            Status = "pending",
+            CreatedBy = userId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
 
         foreach (var item in request.Items)
         {
             var product = await _productCatalogClient.GetProductAsync(item.ProductId);
 
-            if(product is null)
+            if (product is null)
             {
                 return BadRequest($"Ürün bulunamadı: {item.ProductId}");
             }
@@ -76,6 +78,57 @@ public class OrdersController: ControllerBase
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
+        var reservationItems = order.Items
+        .Select(item => new StockReservationItem
+        {
+            ProductId = item.ProductId,
+            Quantity = item.Quantity
+        })
+        .ToList();
+
+        StockReservationResult reservationResult;
+
+        try
+        {
+            reservationResult = await _stockReservationClient.ReserveAsync(
+                order.Id,
+                reservationItems
+            );
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                "Servis A'ya ulaşılamıyor. Sipariş pending durumda kaldı."
+            );
+        }
+
+        if (reservationResult.Status == StockReservationStatus.Success)
+        {
+            order.Status = "confirmed";
+            order.UpdatedAt = DateTime.UtcNow;
+
+            var invoice = new Invoice
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                InvoiceNumber = $"INV-{Guid.NewGuid():N}",
+                TotalAmount = order.TotalAmount,
+                PdfPath = null,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Invoices.Add(invoice);
+        }
+        else if (reservationResult.Status == StockReservationStatus.Rejected)
+        {
+            order.Status = "rejected";
+            order.RejectionReason = reservationResult.RejectionReason;
+            order.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+
         var response = new CreateOrderResponse
         {
             Id = order.Id,
@@ -92,6 +145,11 @@ public class OrdersController: ControllerBase
             }).ToList()
 
         };
+
+        if(order.Status == "rejected")
+        {
+            return Conflict(response);
+        }
         return Ok(response);
     }
 }

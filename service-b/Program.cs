@@ -46,6 +46,13 @@ builder.Services.AddHttpClient<IProductCatalogClient, ProductCatalogClient>(clie
     );
 });
 
+builder.Services.AddHttpClient<IStockReservationClient, StockReservationClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["ServiceA:BaseUrl"]!
+    );
+});
+
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
