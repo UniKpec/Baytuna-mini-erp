@@ -13,12 +13,14 @@ public class OrdersController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IProductCatalogClient _productCatalogClient;
     private readonly IStockReservationClient _stockReservationClient;
+    private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(AppDbContext context, IProductCatalogClient productCatalogClient, IStockReservationClient stockReservationClient)
+    public OrdersController(AppDbContext context, IProductCatalogClient productCatalogClient, IStockReservationClient stockReservationClient, ILogger<OrdersController> logger)
     {
         _context = context;
         _productCatalogClient = productCatalogClient;
         _stockReservationClient = stockReservationClient;
+        _logger = logger;
     }
 
     [Authorize]
@@ -78,6 +80,13 @@ public class OrdersController : ControllerBase
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
 
+        _logger.LogInformation(
+            "Sipariş oluşturuldu. OrderId: {OrderId}, UserId: {UserId}, CustomerId: {CustomerId}",
+            order.Id,
+            userId,
+            order.Customer
+        );
+
         var reservationItems = order.Items
         .Select(item => new StockReservationItem
         {
@@ -97,6 +106,13 @@ public class OrdersController : ControllerBase
         }
         catch (HttpRequestException)
         {
+
+            _logger.LogError(
+                "Service A'ya ulaşılamadı. OrderId: {OrderId}, UserId: {UserId}",
+                order.Id,
+                userId
+            );
+
             return StatusCode(
                 StatusCodes.Status503ServiceUnavailable,
                 "Servis A'ya ulaşılamıyor. Sipariş pending durumda kaldı."
@@ -119,15 +135,36 @@ public class OrdersController : ControllerBase
             };
 
             _context.Invoices.Add(invoice);
+
         }
         else if (reservationResult.Status == StockReservationStatus.Rejected)
         {
             order.Status = "rejected";
             order.RejectionReason = reservationResult.RejectionReason;
             order.UpdatedAt = DateTime.UtcNow;
+
         }
 
         await _context.SaveChangesAsync();
+
+        if (order.Status == "confirmed")
+        {
+            _logger.LogInformation(
+                "Sipariş onaylandı. OrderId: {OrderId}, UserId: {UserId}, TotalAmount: {TotalAmount}",
+                order.Id,
+                userId,
+                order.TotalAmount
+            );
+        }
+        else if (order.Status == "rejected")
+        {
+            _logger.LogWarning(
+                "Sipariş reddedildi. OrderId: {OrderId}, UserId: {UserId}, Reason: {Reason}",
+                order.Id,
+                userId,
+                order.RejectionReason
+            );
+        }
 
         var response = new CreateOrderResponse
         {
