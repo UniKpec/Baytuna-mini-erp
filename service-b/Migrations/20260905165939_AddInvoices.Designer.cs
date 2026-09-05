@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ServiceB.Models;
@@ -11,9 +12,11 @@ using ServiceB.Models;
 namespace MiniErp.ServiceB.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260905165939_AddInvoices")]
+    partial class AddInvoices
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -90,12 +93,7 @@ namespace MiniErp.ServiceB.Migrations
                     b.HasKey("Id")
                         .HasName("pk_invoices");
 
-                    b.HasIndex("InvoiceNumber")
-                        .IsUnique()
-                        .HasDatabaseName("ix_invoices_invoice_number");
-
                     b.HasIndex("OrderId")
-                        .IsUnique()
                         .HasDatabaseName("ix_invoices_order_id");
 
                     b.ToTable("invoices", (string)null);
