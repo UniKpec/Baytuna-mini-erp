@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi;
+using ServiceB.Clients;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,7 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -36,6 +38,14 @@ builder.Services
             )
         };
     });
+
+builder.Services.AddHttpClient<IProductCatalogClient, ProductCatalogClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["ServiceA:BaseUrl"]!
+    );
+});
+
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

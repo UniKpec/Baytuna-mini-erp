@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ServiceB.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using ServiceB.Clients;
 
 namespace ServiceB.Controllers;
 
@@ -10,10 +11,12 @@ namespace ServiceB.Controllers;
 public class OrdersController: ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IProductCatalogClient _productCatalogClient;
 
-    public OrdersController(AppDbContext context)
+    public OrdersController(AppDbContext context, IProductCatalogClient productCatalogClient)
     {
         _context = context;
+        _productCatalogClient = productCatalogClient;
     }
 
     [Authorize]
@@ -47,18 +50,22 @@ public class OrdersController: ControllerBase
 
         foreach (var item in request.Items)
         {
-            var productName = "Mock Product";
-            var unitPrice = 100m;
+            var product = await _productCatalogClient.GetProductAsync(item.ProductId);
+
+            if(product is null)
+            {
+                return BadRequest($"Ürün bulunamadı: {item.ProductId}");
+            }
 
             var orderItem = new OrderItem
             {
                 Id = Guid.NewGuid(),
                 OrderId = order.Id,
                 ProductId = item.ProductId,
-                ProductNameSnapshot = productName,
+                ProductNameSnapshot = product.Name,
                 Quantity = item.Quantity,
-                UnitPriceSnapshot = unitPrice,
-                LineTotal = unitPrice * item.Quantity
+                UnitPriceSnapshot = product.SalePrice,
+                LineTotal = product.SalePrice * item.Quantity
             };
 
             order.Items.Add(orderItem);
