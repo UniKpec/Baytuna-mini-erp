@@ -27,6 +27,7 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://erp:erp123@postgres-a:5432/service_a_db
+      CORS_ORIGINS: ${CORS_ORIGINS}
       RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_FROM: ${RESEND_FROM}
       SMTP_HOST: ${SMTP_HOST}
