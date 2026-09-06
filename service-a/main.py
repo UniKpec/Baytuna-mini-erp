@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field
@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from database import get_db
 from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel, StockReservation as StockReservationModel
 from auth import verify_password, create_access_token, hash_password, require_admin, require_warehouse, require_sales, get_current_user
+from mailer import send_critical_stock_alert, CRITICAL_STOCK_THRESHOLD
 
 app = FastAPI()
 
@@ -151,7 +152,7 @@ def get_stock_movements(product_id: uuid.UUID | None = None, db: Session = Depen
 
 
 @app.post("/internal/stock/reserve")
-def reserve_stock(reservation: StockReserveRequest, db: Session = Depends(get_db), current_user: dict = Depends(require_sales)):
+def reserve_stock(reservation: StockReserveRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: dict = Depends(require_sales)):
     # Idempotency: aynı reservation_id ikinci kez gelirse stok tekrar düşmez.
     existing_reservation = db.query(StockReservationModel).filter(StockReservationModel.reservation_id == reservation.reservation_id).first()
     if existing_reservation is not None:
@@ -196,6 +197,18 @@ def reserve_stock(reservation: StockReserveRequest, db: Session = Depends(get_db
         # Aynı rezervasyon tam aynı anda iki kez geldiyse ikincisi unique kısıtta elenir, stok tek kez düşer.
         db.rollback()
         return {"status": "already_reserved", "reservationId": reservation.reservation_id}
+
+    # Stok düştü: kritik eşiğin altına inen ürünler için Depo'ya uyarı maili tetiklenir.
+    # Mail arka planda gidiyor, sipariş cevabını bekletmesin ve mail hatası siparişi düşürmesin.
+    critical_products = [
+        {"name": product.name, "sku": product.sku, "stock_quantity": product.stock_quantity}
+        for product in products_by_id.values()
+        if product.stock_quantity < CRITICAL_STOCK_THRESHOLD
+    ]
+    if critical_products:
+        warehouse_users = db.query(UserModel).filter(UserModel.role == "warehouse").all()
+        warehouse_emails = [user.email for user in warehouse_users]
+        background_tasks.add_task(send_critical_stock_alert, warehouse_emails, critical_products)
 
     return {
         "status": "reserved",
