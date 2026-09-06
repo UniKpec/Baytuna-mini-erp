@@ -16,6 +16,17 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     .UseSnakeCaseNamingConvention()
 );
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddControllers();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -94,6 +105,7 @@ app.MapGet("/health", () =>
     return Results.Ok(new { status = "ok" });
 });
 
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
