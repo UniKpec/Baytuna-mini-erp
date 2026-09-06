@@ -1,5 +1,6 @@
 import uuid
-from sqlalchemy import Column, Float, String
+from datetime import datetime
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from database import Base
 
@@ -7,8 +8,14 @@ from database import Base
 class Product(Base):
     __tablename__ = "products"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String)
-    price = Column(Float)
+    name = Column(String(255))
+    sku = Column(String(50), unique=True)
+    margin_percent = Column(Numeric(5, 2))
+    avg_cost = Column(Numeric(12, 2), default=0, nullable=False)
+    sale_price = Column(Numeric(12, 2), default=0, nullable=False)
+    stock_quantity = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 
 class User(Base):
@@ -16,4 +23,14 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True)
     hashed_password = Column(String)
-    role = Column(String)   
+    role = Column(String)
+
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    unit_cost = Column(Numeric(12, 2), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

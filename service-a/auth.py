@@ -59,3 +59,9 @@ def require_admin(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Bu işlem için Admin yetkisi gerekli.")
     return current_user
+
+
+def require_warehouse(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "warehouse":
+        raise HTTPException(status_code=403, detail="Bu işlem için Depo yetkisi gerekli.")
+    return current_user
