@@ -3,11 +3,12 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field
 
 from database import get_db
-from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel
-from auth import verify_password, create_access_token, hash_password, require_admin, require_warehouse, get_current_user
+from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel, StockReservation as StockReservationModel
+from auth import verify_password, create_access_token, hash_password, require_admin, require_warehouse, require_sales, get_current_user
 
 app = FastAPI()
 
@@ -24,6 +25,17 @@ class StockMovementCreate(BaseModel):
     unit_cost: Decimal = Field(gt=0)
 
 
+# Servis B ile sözleşme: iç rezervasyon endpoint'inin gövdesi camelCase.
+class StockReserveItem(BaseModel):
+    product_id: uuid.UUID = Field(alias="productId")
+    quantity: int = Field(gt=0)
+
+
+class StockReserveRequest(BaseModel):
+    reservation_id: uuid.UUID = Field(alias="reservationId")
+    items: list[StockReserveItem] = Field(min_length=1)
+
+
 class UserRegister(BaseModel):
     email: str
     password: str
@@ -37,6 +49,11 @@ class UserLogin(BaseModel):
 
 def to_money(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.get("/products")
@@ -131,6 +148,67 @@ def get_stock_movements(product_id: uuid.UUID | None = None, db: Session = Depen
     if product_id is not None:
         query = query.filter(StockMovementModel.product_id == product_id)
     return query.order_by(StockMovementModel.created_at.desc()).all()
+
+
+@app.post("/internal/stock/reserve")
+def reserve_stock(reservation: StockReserveRequest, db: Session = Depends(get_db), current_user: dict = Depends(require_sales)):
+    # Idempotency: aynı reservation_id ikinci kez gelirse stok tekrar düşmez.
+    existing_reservation = db.query(StockReservationModel).filter(StockReservationModel.reservation_id == reservation.reservation_id).first()
+    if existing_reservation is not None:
+        return {"status": "already_reserved", "reservationId": existing_reservation.reservation_id}
+
+    # Aynı üründen birden fazla kalem geldiyse tek satırda topluyoruz.
+    requested = {}
+    for item in reservation.items:
+        requested[item.product_id] = requested.get(item.product_id, 0) + item.quantity
+
+    # Satır kilidi: ürünler hep aynı sırada (id) kilitlenir ki eşzamanlı siparişler birbirini deadlock'a sokmasın.
+    products = (
+        db.query(ProductModel)
+        .filter(ProductModel.id.in_(list(requested.keys())))
+        .order_by(ProductModel.id)
+        .with_for_update()
+        .all()
+    )
+    products_by_id = {product.id: product for product in products}
+
+    # Önce hepsini kontrol et: biri bile yetmiyorsa hiçbirini düşmüyoruz.
+    for product_id, quantity in requested.items():
+        product = products_by_id.get(product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail=f"Ürün bulunamadı: {product_id}")
+        if product.stock_quantity < quantity:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Yetersiz stok: {product.name} (istenen {quantity}, mevcut {product.stock_quantity})",
+            )
+
+    for product_id, quantity in requested.items():
+        product = products_by_id[product_id]
+        product.stock_quantity = product.stock_quantity - quantity
+        product.updated_at = datetime.utcnow()
+
+    db.add(StockReservationModel(reservation_id=reservation.reservation_id))
+    try:
+        # Tüm stok düşümleri ve rezervasyon kaydı tek transaction'da yazılır.
+        db.commit()
+    except IntegrityError:
+        # Aynı rezervasyon tam aynı anda iki kez geldiyse ikincisi unique kısıtta elenir, stok tek kez düşer.
+        db.rollback()
+        return {"status": "already_reserved", "reservationId": reservation.reservation_id}
+
+    return {
+        "status": "reserved",
+        "reservationId": reservation.reservation_id,
+        "items": [
+            {
+                "productId": product_id,
+                "quantity": quantity,
+                "remainingStock": products_by_id[product_id].stock_quantity,
+            }
+            for product_id, quantity in requested.items()
+        ],
+    }
 
 
 @app.post("/auth/register")

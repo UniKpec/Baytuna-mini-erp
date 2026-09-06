@@ -34,3 +34,10 @@ class StockMovement(Base):
     unit_cost = Column(Numeric(12, 2), nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class StockReservation(Base):
+    __tablename__ = "stock_reservations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reservation_id = Column(UUID(as_uuid=True), unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
