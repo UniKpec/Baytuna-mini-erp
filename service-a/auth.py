@@ -12,7 +12,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 JWT_SECRET = os.getenv("JWT_SECRET")
 if not JWT_SECRET:
     # Secret yoksa token uretimi/dogrulamasi anlamsiz; baslangicta patlasin.
-    raise RuntimeError("JWT_SECRET tanımlı değil. service-a/.env dosyasını kontrol et.")
+    raise RuntimeError(
+        "JWT_SECRET tanımlı değil. Yerelde service-a/.env, Docker'da docker-compose.yml içindeki "
+        "service-a environment bloğunu kontrol et."
+    )
 
 JWT_ISSUER = os.getenv("JWT_ISSUER")
 JWT_AUDIENCE = os.getenv("JWT_AUDIENCE")
