@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 from jose import jwt
 import os
@@ -10,6 +10,10 @@ import os
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    # Secret yoksa token uretimi/dogrulamasi anlamsiz; baslangicta patlasin.
+    raise RuntimeError("JWT_SECRET tanımlı değil. service-a/.env dosyasını kontrol et.")
+
 JWT_ISSUER = os.getenv("JWT_ISSUER")
 JWT_AUDIENCE = os.getenv("JWT_AUDIENCE")
 JWT_ALGORITHM = "HS256"
@@ -28,7 +32,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(user_id: str, role: str) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=60)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=60)
     payload = {
         "user_id": user_id,
         "role": role,
@@ -71,3 +75,19 @@ def require_sales(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "sales":
         raise HTTPException(status_code=403, detail="Bu işlem için Satış yetkisi gerekli.")
     return current_user
+
+
+def read_token_claims(authorization_header: str | None) -> dict:
+    """Loglama için token'ı en iyi çabayla çözer; geçersizse hata fırlatmaz, boş sözlük döner."""
+    if not authorization_header or not authorization_header.lower().startswith("bearer "):
+        return {}
+    try:
+        return jwt.decode(
+            authorization_header[7:],
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            issuer=JWT_ISSUER,
+            audience=JWT_AUDIENCE,
+        )
+    except JWTError:
+        return {}

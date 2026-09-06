@@ -1,17 +1,47 @@
+import logging
+import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Depends
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field
 
 from database import get_db
 from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel, StockReservation as StockReservationModel
-from auth import verify_password, create_access_token, hash_password, require_admin, require_warehouse, require_sales, get_current_user
+from auth import verify_password, create_access_token, hash_password, require_admin, require_warehouse, require_sales, get_current_user, read_token_claims
 from mailer import send_critical_stock_alert, CRITICAL_STOCK_THRESHOLD
+from logging_setup import setup_logging
+
+setup_logging()
+logger = logging.getLogger("service-a")
 
 app = FastAPI()
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Her isteği tek satır JSON olarak loglar: kim, hangi endpoint, ne sonuç, ne kadar sürdü."""
+    started_at = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 1)
+
+    # Token geçersizse bile log düşsün diye claim'leri en iyi çabayla okuyoruz.
+    claims = read_token_claims(request.headers.get("authorization"))
+
+    logger.info(
+        "istek",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "user_id": claims.get("user_id"),
+            "role": claims.get("role"),
+            "duration_ms": duration_ms,
+        },
+    )
+    return response
 
 
 class Product(BaseModel):
@@ -113,7 +143,7 @@ def create_stock_movement(movement: StockMovementCreate, db: Session = Depends(g
     product.stock_quantity = new_quantity
     product.avg_cost = new_avg_cost
     product.sale_price = new_sale_price
-    product.updated_at = datetime.utcnow()
+    product.updated_at = datetime.now(timezone.utc)
 
     new_movement = StockMovementModel(
         product_id=product.id,
@@ -187,7 +217,7 @@ def reserve_stock(reservation: StockReserveRequest, background_tasks: Background
     for product_id, quantity in requested.items():
         product = products_by_id[product_id]
         product.stock_quantity = product.stock_quantity - quantity
-        product.updated_at = datetime.utcnow()
+        product.updated_at = datetime.now(timezone.utc)
 
     db.add(StockReservationModel(reservation_id=reservation.reservation_id))
     try:
