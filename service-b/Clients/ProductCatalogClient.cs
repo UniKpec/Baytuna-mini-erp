@@ -19,7 +19,7 @@ public class ProductCatalogClient : IProductCatalogClient
 
     public async Task<ProductCatalogItem?> GetProductAsync(Guid productId)
     {
-        var response = await _httpClient.GetAsync($"/product/{productId}");
+        var response = await _httpClient.GetAsync($"/products/{productId}");
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

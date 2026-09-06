@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using ServiceB.Clients;
 
+
 namespace ServiceB.Controllers;
 
 [ApiController]
@@ -23,7 +24,7 @@ public class OrdersController : ControllerBase
         _logger = logger;
     }
 
-    [Authorize]
+    [Authorize(Roles = "sales")]
     [HttpPost]
     public async Task<IActionResult> Create(CreateOrderRequest request)
     {
@@ -172,6 +173,7 @@ public class OrdersController : ControllerBase
             Status = order.Status,
             TotalAmount = order.TotalAmount,
             CreatedBy = order.CreatedBy,
+            RejectionReason = order.RejectionReason,
             Items = order.Items.Select(item => new CreateOrderItemResponse
             {
                 ProductId = item.ProductId,
@@ -187,6 +189,99 @@ public class OrdersController : ControllerBase
         {
             return Conflict(response);
         }
+        return Ok(response);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var orders = await _context.Orders
+            .Include(o => o.Customer)
+            .Include(o => o.Items)
+            .Include(o => o.Invoice)
+            .ToListAsync();
+
+        var response = orders.Select(order => new OrderResponse
+        {
+            Id = order.Id,
+            Status = order.Status,
+            TotalAmount = order.TotalAmount,
+            CreatedAt = order.CreatedAt,
+
+            CustomerId = order.CustomerId,
+            CustomerName = order.Customer.Name,
+
+            RejectionReason = order.RejectionReason,
+
+            Items = order.Items.Select(item => new OrderItemResponse
+            {
+                ProductId = item.ProductId,
+                ProductName = item.ProductNameSnapshot,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPriceSnapshot,
+                LineTotal = item.LineTotal
+            }).ToList(),
+
+            Invoice = order.Invoice is null
+                ? null
+                : new InvoiceResponse
+                {
+                    Id = order.Invoice.Id,
+                    InvoiceNumber = order.Invoice.InvoiceNumber,
+                    TotalAmount = order.Invoice.TotalAmount,
+                    PdfPath = order.Invoice.PdfPath,
+                    CreatedAt = order.Invoice.CreatedAt
+                }
+        }).ToList();
+
+        return Ok(response);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Customer)
+            .Include(o => o.Items)
+            .Include(o => o.Invoice)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order is null)
+        {
+            return NotFound();
+        }
+
+        var response = new OrderResponse
+        {
+            Id = order.Id,
+            Status = order.Status,
+            TotalAmount = order.TotalAmount,
+            CreatedAt = order.CreatedAt,
+            CustomerId = order.CustomerId,
+            CustomerName = order.Customer.Name,
+            RejectionReason = order.RejectionReason,
+
+            Items = order.Items.Select(item => new OrderItemResponse
+            {
+                ProductId = item.ProductId,
+                ProductName = item.ProductNameSnapshot,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPriceSnapshot,
+                LineTotal = item.LineTotal
+            }).ToList(),
+
+            Invoice = order.Invoice is null
+                ? null
+                : new InvoiceResponse
+                {
+                    Id = order.Invoice.Id,
+                    InvoiceNumber = order.Invoice.InvoiceNumber,
+                    TotalAmount = order.Invoice.TotalAmount,
+                    PdfPath = order.Invoice.PdfPath,
+                    CreatedAt = order.Invoice.CreatedAt
+                }
+        };
+
         return Ok(response);
     }
 }

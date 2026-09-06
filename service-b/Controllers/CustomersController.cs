@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ServiceB.Models;
@@ -6,6 +7,7 @@ namespace ServiceB.Controllers;
 
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class CustomersController : ControllerBase
 {

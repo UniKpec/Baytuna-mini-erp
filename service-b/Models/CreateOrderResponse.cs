@@ -6,5 +6,6 @@ public class CreateOrderResponse
     public string Status { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
     public Guid CreatedBy { get; set; } 
+    public string? RejectionReason { get; set; }
     public List<CreateOrderItemResponse> Items { get; set; } = new();
 }
