@@ -1,9 +1,11 @@
 import logging
+import os
 import time
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field
@@ -42,6 +44,19 @@ async def log_requests(request: Request, call_next):
         },
     )
     return response
+
+
+# Frontend ayrı bir origin'den geliyor (yerelde Next.js :3000, canlıda Vercel).
+# Adresler .env'den okunuyor ki Vercel URL'i değiştiğinde kod değişmesin.
+allowed_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class Product(BaseModel):
