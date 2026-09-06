@@ -5,6 +5,7 @@ services:
     ports:
     - "8080:8080"
     environment:
+      Jwt__Secret: ${JWT_SECRET}
       ConnectionStrings__DefaultConnection: "Host=postgres-b;Port=5432;Database=MiniErpDb;Username=postgres;Password=${POSTGRES_B_PASSWORD}"
     depends_on:
       - postgres-b
@@ -26,6 +27,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      JWT_SECRET: ${JWT_SECRET}
       DATABASE_URL: postgresql://erp:erp123@postgres-a:5432/service_a_db
       CORS_ORIGINS: ${CORS_ORIGINS}
       RESEND_API_KEY: ${RESEND_API_KEY}

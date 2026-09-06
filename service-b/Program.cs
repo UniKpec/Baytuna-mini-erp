@@ -21,11 +21,14 @@ builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins("http://localhost:3000")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<ForwardAuthorizationHeaderHandler>();
 
 builder.Services.AddControllers();
 builder.Services
@@ -47,7 +50,8 @@ builder.Services
                 Encoding.UTF8.GetBytes(
                     builder.Configuration["Jwt:Secret"]!
                 )
-            )
+            ),
+            RoleClaimType = "role"
         };
     });
 
@@ -56,14 +60,16 @@ builder.Services.AddHttpClient<IProductCatalogClient, ProductCatalogClient>(clie
     client.BaseAddress = new Uri(
         builder.Configuration["ServiceA:BaseUrl"]!
     );
-});
+})
+.AddHttpMessageHandler<ForwardAuthorizationHeaderHandler>();
 
 builder.Services.AddHttpClient<IStockReservationClient, StockReservationClient>(client =>
 {
     client.BaseAddress = new Uri(
         builder.Configuration["ServiceA:BaseUrl"]!
     );
-});
+})
+.AddHttpMessageHandler<ForwardAuthorizationHeaderHandler>();;
 
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();

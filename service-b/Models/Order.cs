@@ -21,6 +21,7 @@ public class Order
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public List<OrderItem> Items { get; set; } = new();
+    public Invoice? Invoice { get; set; }
 
 
 }

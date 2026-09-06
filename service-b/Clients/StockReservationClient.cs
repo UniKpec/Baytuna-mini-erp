@@ -14,13 +14,13 @@ public class StockReservationClient : IStockReservationClient
     }
 
     public async Task<StockReservationResult> ReserveAsync(
-        Guid orderId,
+        Guid reservationId,
         IReadOnlyList<StockReservationItem> items
     )
     {
         var request = new
         {
-            orderId,
+            reservationId,
             items
         };
 
@@ -39,12 +39,13 @@ public class StockReservationClient : IStockReservationClient
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
-            var reason = await response.Content.ReadAsStringAsync();
+            var error = await response.Content
+                .ReadFromJsonAsync<ServiceAErrorResponse>();
 
             return new StockReservationResult
             {
                 Status = StockReservationStatus.Rejected,
-                RejectionReason = reason
+                RejectionReason = error?.Detail ?? "Stok rezervasyonu reddedildi."
             };
         }
 
