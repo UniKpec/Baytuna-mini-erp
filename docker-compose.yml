@@ -6,6 +6,10 @@ services:
     - "8080:8080"
     environment:
       ConnectionStrings__DefaultConnection: "Host=postgres-b;Port=5432;Database=MiniErpDb;Username=postgres;Password=${POSTGRES_B_PASSWORD}"
+      # Servis A token'i uretir, Servis B dogrular; ayni secret olmadan dogrulama calismaz.
+      Jwt__Secret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER:-MiniErp.ServiceA}
+      Jwt__Audience: ${JWT_AUDIENCE:-MiniErp.ServiceB}
     depends_on:
       - postgres-b
 
@@ -27,6 +31,10 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://erp:erp123@postgres-a:5432/service_a_db
+      # JWT sozlesmesi: bu uc deger iki serviste de AYNI olmak zorunda.
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-MiniErp.ServiceA}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-MiniErp.ServiceB}
       CORS_ORIGINS: ${CORS_ORIGINS}
       RESEND_API_KEY: ${RESEND_API_KEY}
       RESEND_FROM: ${RESEND_FROM}
