@@ -269,8 +269,10 @@ def reserve_stock(reservation: StockReserveRequest, background_tasks: Background
     }
 
 
+# Kullanıcı oluşturmak Admin'in işi. İlk Admin seed.py ile yaratılıyor;
+# bu endpoint açık kalsaydı internetten herkes kendine admin hesabı açabilirdi.
 @app.post("/auth/register")
-def register(user: UserRegister, db: Session = Depends(get_db)):
+def register(user: UserRegister, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     existing_user = db.query(UserModel).filter(UserModel.email == user.email).first()
     if existing_user is not None:
         raise HTTPException(status_code=400, detail="Bu email zaten kayıtlı.")
