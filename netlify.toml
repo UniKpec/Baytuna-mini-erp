@@ -1,11 +1,13 @@
 # Frontend Netlify'da yayınlanıyor. Repo monorepo olduğu için base'i belirtmek şart,
 # yoksa Netlify kökte package.json arar ve build başarısız olur.
-# Next.js adaptörü (OpenNext) Netlify tarafından otomatik uygulanır, eklenti kurulmaz.
+#
+# build command ve publish BİLEREK yazılmadı. Netlify Next.js'i kendisi tanıyıp
+# OpenNext adaptörünü uyguluyor; publish elle verilirse "custom publish path"
+# sayılıp otomatik yapılandırma devre dışı kalıyor ve .next düz statik klasör
+# olarak yükleniyor (fonksiyon üretilmiyor, site 404 veriyor).
 
 [build]
   base = "frontend"
-  command = "npm run build"
-  publish = ".next"
 
 [build.environment]
   # Next.js 16 Node 20+ istiyor; yerelde kullandığımız sürümle aynı tutuyoruz.
