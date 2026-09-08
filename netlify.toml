@@ -1,13 +1,21 @@
-# Frontend Netlify'da yayınlanıyor. Repo monorepo olduğu için base'i belirtmek şart,
-# yoksa Netlify kökte package.json arar ve build başarısız olur.
+# Frontend Netlify'da yayınlanıyor.
 #
-# build command ve publish BİLEREK yazılmadı. Netlify Next.js'i kendisi tanıyıp
-# OpenNext adaptörünü uyguluyor; publish elle verilirse "custom publish path"
-# sayılıp otomatik yapılandırma devre dışı kalıyor ve .next düz statik klasör
-# olarak yükleniyor (fonksiyon üretilmiyor, site 404 veriyor).
+# base: repo monorepo, Next.js uygulaması frontend/ altında. Bu satır olmazsa
+#       Netlify kökte package.json arar ve build başlamadan biter.
+#
+# [[plugins]]: Netlify normalde Next.js'i tanıyıp bu adaptörü kendisi ekliyor,
+#       ama monorepo + özel publish yolu birleşince otomatik yapılandırmayı
+#       atlıyor ve .next düz statik klasör olarak yükleniyor (fonksiyon üretilmiyor,
+#       site 404 veriyor). Bu yüzden adaptörü açıkça bildiriyoruz.
+#       Paketi package.json'a eklemeye gerek yok, Netlify kendi indiriyor.
 
 [build]
   base = "frontend"
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 [build.environment]
   # Next.js 16 Node 20+ istiyor; yerelde kullandığımız sürümle aynı tutuyoruz.
