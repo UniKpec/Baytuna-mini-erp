@@ -120,3 +120,11 @@ def test_stok_girisi_ortalama_maliyeti_ve_satis_fiyatini_gunceller(client, token
     assert product.stock_quantity == 10
     assert product.avg_cost == Decimal("150.00")
     assert product.sale_price == Decimal("180.00")
+
+
+def test_kullanici_olusturmak_admin_yetkisi_ister(client, tokens):
+    yeni = {"email": "yeni@test", "password": "sifre123", "role": "admin"}
+
+    assert client.post("/auth/register", json=yeni).status_code == 401
+    assert client.post("/auth/register", json=yeni, headers=tokens["sales"]).status_code == 403
+    assert client.post("/auth/register", json=yeni, headers=tokens["admin"]).status_code == 200

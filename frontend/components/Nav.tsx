@@ -10,10 +10,10 @@ type NavLink = { href: string; label: string; roles?: Role[] };
 // roles boşsa herkese görünür. Rol tablosu: contracts planı bölüm 1.5.
 const LINKS: NavLink[] = [
   { href: "/", label: "Özet" },
+  { href: "/products", label: "Ürünler" },
   { href: "/orders", label: "Siparişler" },
   { href: "/orders/new", label: "Yeni Sipariş", roles: ["sales"] },
-  // Bedirhan'ın ekranları hazır olunca aşağıdakiler açılacak (Gün 13-14):
-  // { href: "/products", label: "Ürünler" },
+  // Bedirhan'ın kalan ekranları hazır olunca açılacak:
   // { href: "/products/new", label: "Ürün Ekle", roles: ["admin"] },
   // { href: "/stock", label: "Stok Girişi", roles: ["warehouse"] },
   // { href: "/customers", label: "Müşteriler" },
