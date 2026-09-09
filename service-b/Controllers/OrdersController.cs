@@ -55,7 +55,26 @@ public class OrdersController : ControllerBase
 
         foreach (var item in request.Items)
         {
-            var product = await _productCatalogClient.GetProductAsync(item.ProductId);
+
+            ProductCatalogItem? product;
+
+            try
+            {
+                product = await _productCatalogClient.GetProductAsync(item.ProductId);
+            }
+            catch(HttpRequestException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Service A ürün kataloğuna ulaşılamadı. ProductId: {ProductId}",
+                    item.ProductId
+                );
+
+                return StatusCode(
+                    StatusCodes.Status503ServiceUnavailable,
+                    "Ürün servisine şu anda ulaşılamıyor."
+                );
+            }
 
             if (product is null)
             {
