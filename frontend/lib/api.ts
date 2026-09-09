@@ -88,6 +88,36 @@ export function getProducts() {
   return serviceA<Product[]>("/products");
 }
 
+export function createProduct(
+  name: string,
+  sku: string,
+  marginPercent: number
+) {
+  return serviceA<Product>("/products", {
+    method: "POST",
+    body: {
+      name,
+      sku,
+      margin_percent: marginPercent,
+    },
+  });
+}
+
+export function createStockMovement(
+  productId: string,
+  quantity: number,
+  unitCost: number
+) {
+  return serviceA("/stock-movements", {
+    method: "POST",
+    body: {
+      product_id: productId,
+      quantity,
+      unit_cost: unitCost,
+    },
+  });
+}
+
 // --- Servis B ---
 
 export function getCustomers() {
