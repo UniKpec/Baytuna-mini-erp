@@ -8,6 +8,7 @@ using ServiceB.Clients;
 namespace ServiceB.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
