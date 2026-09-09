@@ -116,21 +116,21 @@ export default function NewStockMovementPage() {
                         className="rounded-md border border-slate-300 px-3 py-2"
                     />
                 </div>
+
+                <button
+                    type="submit"
+                    disabled={submitting}
+                    className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
+                >
+                    {submitting ? "Kaydediliyor..." : "Stok Girişi Yap"}
+                    </button>
+
+                    {message && (
+                        <p className="text-sm text-slate-600">
+                            {message}
+                        </p>
+                    )}
             </form>
-
-            <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-            >
-                {submitting ? "Kaydediliyor..." : "Stok Girişi Yap"}
-                </button>
-
-                {message && (
-                    <p className="text-sm text-slate-600">
-                        {message}
-                    </p>
-                )}
         </div>
     </ProtectedPage>
   );
