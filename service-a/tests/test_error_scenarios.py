@@ -128,3 +128,46 @@ def test_kullanici_olusturmak_admin_yetkisi_ister(client, tokens):
     assert client.post("/auth/register", json=yeni).status_code == 401
     assert client.post("/auth/register", json=yeni, headers=tokens["sales"]).status_code == 403
     assert client.post("/auth/register", json=yeni, headers=tokens["admin"]).status_code == 200
+
+
+def test_urun_guncelleme_marj_degisince_satis_fiyatini_yeniden_hesaplar(client, tokens, product, db_session):
+    from decimal import Decimal
+
+    # Ortalama maliyet 100 TL; marj %20'den %50'ye çıkınca satış 120'den 150'ye çıkmalı.
+    response = client.put(
+        f"/products/{product.id}",
+        json={"name": "Vida M8 (yeni)", "sku": product.sku, "margin_percent": 50},
+        headers=tokens["admin"],
+    )
+    assert response.status_code == 200
+
+    db_session.refresh(product)
+    assert product.name == "Vida M8 (yeni)"
+    assert product.sale_price == Decimal("150.00")
+    # Maliyet ve stok güncellemeyle değişmemeli, onlar Depo'nun alanı.
+    assert product.avg_cost == Decimal("100.00")
+    assert product.stock_quantity == 5
+
+
+def test_urun_guncelleme_baska_urunun_skusunu_alamaz(client, tokens, product, db_session):
+    from decimal import Decimal
+    from models import Product
+
+    diger = Product(name="Somun", sku="SMN-M8", margin_percent=Decimal("30"),
+                    avg_cost=Decimal("10.00"), sale_price=Decimal("13.00"), stock_quantity=1)
+    db_session.add(diger)
+    db_session.commit()
+
+    response = client.put(
+        f"/products/{product.id}",
+        json={"name": "Vida", "sku": "SMN-M8", "margin_percent": 20},
+        headers=tokens["admin"],
+    )
+    assert response.status_code == 400
+
+
+def test_urun_guncelleme_yetki_ve_olmayan_urun(client, tokens, product):
+    govde = {"name": "Vida", "sku": product.sku, "margin_percent": 20}
+
+    assert client.put(f"/products/{product.id}", json=govde, headers=tokens["sales"]).status_code == 403
+    assert client.put(f"/products/{uuid.uuid4()}", json=govde, headers=tokens["admin"]).status_code == 404
