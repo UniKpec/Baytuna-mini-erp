@@ -127,6 +127,29 @@ def get_product_id(product_id: uuid.UUID, db: Session = Depends(get_db), current
         raise HTTPException(status_code=404, detail="Ürün bulunamadı.")
     return product
 
+@app.put("/products/{product_id}")
+def update_product(product_id: uuid.UUID, product: Product, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    existing_product = db.query(ProductModel).filter(ProductModel.id == product_id).first()
+    if existing_product is None:
+        raise HTTPException(status_code=404, detail="Ürün bulunamadı.")
+
+    # SKU başka bir ürüne aitse reddet; ürünün kendi SKU'sunu koruyarak güncellenmesine izin ver.
+    sku_owner = db.query(ProductModel).filter(ProductModel.sku == product.sku, ProductModel.id != product_id).first()
+    if sku_owner is not None:
+        raise HTTPException(status_code=400, detail="Bu SKU zaten kayıtlı.")
+
+    existing_product.name = product.name
+    existing_product.sku = product.sku
+    existing_product.margin_percent = product.margin_percent
+    # Marj değişince satış fiyatı da değişmeli: fiyat elle girilmez, ortalama maliyetten hesaplanır.
+    existing_product.sale_price = to_money(existing_product.avg_cost * (1 + product.margin_percent / 100))
+    existing_product.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(existing_product)
+    return existing_product
+
+
 @app.delete("/products/{product_id}")
 def delete_product(product_id: uuid.UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     product = db.query(ProductModel).filter(ProductModel.id == product_id).first()
