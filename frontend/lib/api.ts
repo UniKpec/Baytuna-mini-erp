@@ -124,6 +124,21 @@ export function getCustomers() {
   return serviceB<Customer[]>("/api/customers");
 }
 
+export function createCustomer(
+  name: string,
+  email: string,
+  phone: string
+) {
+  return serviceB<Customer>("/api/customers", {
+    method: "POST",
+    body: {
+      name,
+      email,
+      phone,
+    },
+  });
+}
+
 export function createOrder(customerId: string, items: { productId: string; quantity: number }[]) {
   return serviceB<Order>("/api/orders", { method: "POST", body: { customerId, items } });
 }

@@ -21,7 +21,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:3000")
+            .WithOrigins(
+                "http://localhost:3000",
+                "https://minierp.net.tr",
+                "https://www.minierp.net.tr",
+                "https://jovial-lokum-10812f.netlify.app"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
