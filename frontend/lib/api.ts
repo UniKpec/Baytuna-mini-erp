@@ -1,6 +1,6 @@
 import { SERVICE_A_URL, SERVICE_B_URL } from "./config";
 import { getToken } from "./auth";
-import type { Customer, Order, Product } from "./types";
+import type { Customer, DailySummary, Order, Product, ReportAnswer } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -116,6 +116,14 @@ export function createStockMovement(
       unit_cost: unitCost,
     },
   });
+}
+
+export function getDailySummary() {
+  return serviceA<DailySummary>("/reports/daily-summary");
+}
+
+export function askReport(question: string) {
+  return serviceA<ReportAnswer>("/reports/ask", { method: "POST", body: { question } });
 }
 
 // --- Servis B ---

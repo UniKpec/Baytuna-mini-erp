@@ -56,3 +56,44 @@ export type Invoice = {
   pdfPath: string | null;
   createdAt: string;
 };
+
+// Servis A günlük özet (snake_case). Tutarlar sayı olarak gelir.
+export type DailyStat = {
+  date: string;
+  order_count: number;
+  confirmed_count: number;
+  rejected_count: number;
+  pending_count: number;
+  revenue: number;
+};
+
+export type DailySummary = {
+  generated_at: string;
+  orders_available: boolean;
+  critical_stock_threshold: number;
+  critical_stock: { id: string; name: string; sku: string; stock_quantity: number }[];
+  today: DailyStat | null;
+  last_7_days: DailyStat[];
+  week: {
+    revenue: number;
+    previous_week_revenue: number;
+    revenue_change_percent: number | null;
+    order_count: number;
+    rejected_count: number;
+    top_products: { name: string; quantity: number; revenue: number }[];
+    top_rejected_products: { name: string; quantity: number; order_count: number }[];
+  } | null;
+  recent_orders: {
+    id: string;
+    customer_name: string | null;
+    status: OrderStatus;
+    total_amount: number;
+    created_at: string;
+  }[];
+  ai_summary: string | null;
+};
+
+export type ReportAnswer = {
+  question: string;
+  answer: string;
+};

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { AiSummaryCard } from "@/components/AiSummaryCard";
+import { AskBox } from "@/components/AskBox";
 import { ProtectedPage } from "@/components/ProtectedPage";
 import { useAuth } from "@/components/AuthProvider";
 import { ROLE_LABELS } from "@/lib/types";
@@ -39,9 +41,10 @@ function Ozet() {
         )}
       </div>
 
-      <p className="mt-8 text-xs text-slate-400">
-        Sayısal özet ve yapay zekâ yorumu Gün 16&apos;da bu sayfaya eklenecek.
-      </p>
+      <div className="mt-8 space-y-4">
+        <AiSummaryCard />
+        <AskBox />
+      </div>
     </div>
   );
 }
