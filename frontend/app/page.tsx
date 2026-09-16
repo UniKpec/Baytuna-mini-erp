@@ -17,11 +17,13 @@ export default function HomePage() {
 
 function Ozet() {
   const { claims } = useAuth();
+
   if (!claims) return null;
 
   return (
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Özet</h1>
+
       <p className="mt-1 text-sm text-slate-500">
         {ROLE_LABELS[claims.role]} olarak giriş yaptın.
       </p>
@@ -32,6 +34,7 @@ function Ozet() {
           baslik="Siparişler"
           aciklama="Oluşturulmuş siparişleri ve durumlarını gör."
         />
+
         {claims.role === "sales" && (
           <Kart
             href="/orders/new"
@@ -39,6 +42,44 @@ function Ozet() {
             aciklama="Müşteri ve ürün seçip sipariş oluştur."
           />
         )}
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <p className="text-sm text-slate-500">
+            Bugünkü Sipariş Sayısı
+          </p>
+
+          <p className="mt-2 text-2xl font-semibold">-</p>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <p className="text-sm text-slate-500">
+            Bugünkü Ciro
+          </p>
+
+          <p className="mt-2 text-2xl font-semibold">-</p>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="font-medium text-slate-900">
+          Kritik Stok
+        </h2>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Veri bekleniyor.
+        </p>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="font-medium text-slate-900">
+          Son 5 Sipariş
+        </h2>
+
+        <p className="mt-2 text-sm text-slate-500">
+          Veri bekleniyor.
+        </p>
       </div>
 
       <div className="mt-8 space-y-4">
@@ -49,14 +90,27 @@ function Ozet() {
   );
 }
 
-function Kart({ href, baslik, aciklama }: { href: string; baslik: string; aciklama: string }) {
+function Kart({
+  href,
+  baslik,
+  aciklama,
+}: {
+  href: string;
+  baslik: string;
+  aciklama: string;
+}) {
   return (
     <Link
       href={href}
       className="rounded-lg border border-slate-200 bg-white p-5 transition hover:border-slate-400"
     >
-      <h2 className="font-medium text-slate-900">{baslik}</h2>
-      <p className="mt-1 text-sm text-slate-500">{aciklama}</p>
+      <h2 className="font-medium text-slate-900">
+        {baslik}
+      </h2>
+
+      <p className="mt-1 text-sm text-slate-500">
+        {aciklama}
+      </p>
     </Link>
   );
 }
