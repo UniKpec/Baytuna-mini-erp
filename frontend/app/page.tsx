@@ -38,10 +38,38 @@ function Ozet() {
           />
         )}
       </div>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <p className="text-sm text-slate-500">Bugünkü Sipariş Sayısı</p>
+          <p className="mt-2 text-2xl font-semibold">-</p>
+        </div>
 
-      <p className="mt-8 text-xs text-slate-400">
-        Sayısal özet ve yapay zekâ yorumu Gün 16&apos;da bu sayfaya eklenecek.
-      </p>
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <p className="text-sm text-slate-500">Bugünkü Ciro</p>
+          <p className="mt-2 text-2xl font-semibold">-</p>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="font-medium text-slate-900">Kritik Stok</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Veri bekleniyor.
+        </p>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="font-medium text-slate-900">Son 5 Sipariş</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Veri bekleniyor.
+        </p>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="font-medium text-slate-900">AI Trend Özeti</h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Özet verisi bekleniyor.
+        </p>
+      </div>
     </div>
   );
 }
