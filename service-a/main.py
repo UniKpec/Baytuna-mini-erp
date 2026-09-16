@@ -4,17 +4,20 @@ import time
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from typing import Annotated
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from database import get_db
 from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel, StockReservation as StockReservationModel
 from auth import verify_password, create_access_token, hash_password, require_admin, require_warehouse, require_sales, get_current_user, read_token_claims
 from mailer import send_critical_stock_alert, CRITICAL_STOCK_THRESHOLD
 from logging_setup import setup_logging
+from reports import fetch_orders, build_summary, build_question_context
+from ai import summarize_trends, answer_question, is_configured as ai_is_configured
 
 setup_logging()
 logger = logging.getLogger("service-a")
@@ -91,6 +94,11 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
+
+
+class ReportQuestion(BaseModel):
+    # Boşluklar kırpılıyor ki "   " geçerli bir soru sayılmasın; üst sınır maliyeti ve kötüye kullanımı sınırlıyor.
+    question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
 
 def to_money(value: Decimal) -> Decimal:
@@ -290,6 +298,37 @@ def reserve_stock(reservation: StockReserveRequest, background_tasks: Background
             for product_id, quantity in requested.items()
         ],
     }
+
+
+@app.get("/reports/daily-summary")
+def daily_summary(request: Request, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    # Sipariş verisi Servis B'de; stok verisi burada. İkisini birleştirip tek özet dönüyoruz.
+    orders = fetch_orders(request.headers.get("authorization"))
+    products = db.query(ProductModel).all()
+    summary = build_summary(orders, products, datetime.now(timezone.utc))
+
+    # Yapay zekâ yorumu ek bilgi: başarısız olursa ai_summary boş kalır, sayılar yine döner.
+    # Sipariş verisi yokken yorum yaptırmıyoruz, eksik veriyle yanıltıcı olur.
+    if summary["orders_available"]:
+        summary["ai_summary"] = summarize_trends(summary)
+    return summary
+
+
+@app.post("/reports/ask")
+def ask_report(payload: ReportQuestion, request: Request, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if not ai_is_configured():
+        raise HTTPException(status_code=503, detail="Yapay zekâ özelliği şu an yapılandırılmamış.")
+
+    orders = fetch_orders(request.headers.get("authorization"))
+    if orders is None:
+        raise HTTPException(status_code=503, detail="Sipariş verilerine ulaşılamadı, soru şu an cevaplanamıyor.")
+
+    products = db.query(ProductModel).all()
+    context = build_question_context(orders, products, datetime.now(timezone.utc))
+    answer = answer_question(payload.question, context)
+    if answer is None:
+        raise HTTPException(status_code=503, detail="Yapay zekâ şu an yanıt veremiyor, birazdan tekrar dene.")
+    return {"question": payload.question, "answer": answer}
 
 
 # Kullanıcı oluşturmak Admin'in işi. İlk Admin seed.py ile yaratılıyor;
