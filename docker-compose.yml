@@ -43,6 +43,11 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
+      # Gun 16-17 yapay zeka ozeti ve soru-cevap (Google Gemini). Bos birakilirsa ozellik kapali kalir, sayisal ozet yine calisir.
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      # Gunluk ozet siparis verisini Servis B'den ceker.
+      SERVICE_B_URL: ${SERVICE_B_URL:-http://service-b:8080}
     depends_on:
       - postgres-a
     volumes:

@@ -8,6 +8,10 @@ os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("JWT_ISSUER", "MiniErp.ServiceA")
 os.environ.setdefault("JWT_AUDIENCE", "MiniErp.ServiceB")
+# Gerçek anahtar service-a/.env'de duruyor; testler asla gerçek (ücretli/kotalı) istek atmasın.
+# load_dotenv tanımlı değişkenin üzerine yazmadığı için boş değer .env'dekini engelliyor.
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["GEMINI_MODEL"] = ""
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
