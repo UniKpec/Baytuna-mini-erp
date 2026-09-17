@@ -97,3 +97,21 @@ export type ReportAnswer = {
   question: string;
   answer: string;
 };
+
+// Servis A'daki kritik stok eşiğiyle aynı olmalı (service-a/mailer.py CRITICAL_STOCK_THRESHOLD).
+export const CRITICAL_STOCK_THRESHOLD = 10;
+
+// POST /stock-movements cevabı: hareket kaydı ve ürünün güncellenmiş maliyet/fiyat bilgisi.
+export type StockMovementResult = {
+  id: string;
+  product_id: string;
+  quantity: number;
+  unit_cost: number;
+  created_by: string;
+  created_at: string;
+  product: {
+    stock_quantity: number;
+    avg_cost: number;
+    sale_price: number;
+  };
+};

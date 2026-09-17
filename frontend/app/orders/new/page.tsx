@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { CircleAlertIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react";
+import { PageToolbar } from "@/components/page-toolbar";
 import { ProtectedPage } from "@/components/ProtectedPage";
+import { ErrorState, LoadingState } from "@/components/states";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
 import { ApiError, createOrder, getCustomers, getProducts } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import type { Customer, Order, Product } from "@/lib/types";
@@ -37,17 +47,14 @@ function NewOrderForm() {
     // İki servisten paralel çekiyoruz; biri yavaşsa diğerini bekletmesin.
     Promise.all([getCustomers(), getProducts()])
       .then(([customerList, productList]) => {
-        setCustomers(customerList);
-        setProducts(productList);
+        setCustomers([...customerList].sort((a, b) => a.name.localeCompare(b.name, "tr")));
+        setProducts([...productList].sort((a, b) => a.name.localeCompare(b.name, "tr")));
       })
       .catch((caught) => setLoadError(caught instanceof ApiError ? caught.message : "Veriler yüklenemedi."))
       .finally(() => setLoading(false));
   }, []);
 
-  const productsById = useMemo(
-    () => new Map(products.map((product) => [product.id, product])),
-    [products],
-  );
+  const productsById = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
 
   const total = useMemo(
     () =>
@@ -74,7 +81,7 @@ function NewOrderForm() {
     setLines((current) => (current.length === 1 ? current : current.filter((_, i) => i !== index)));
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError(null);
     setRejected(null);
@@ -96,9 +103,7 @@ function NewOrderForm() {
         const body = caught.body as Partial<Order> | null;
         setRejected(body?.rejectionReason ?? "Stok yetersiz olduğu için sipariş reddedildi.");
       } else if (caught.status === 503) {
-        setSubmitError(
-          "Servis A'ya ulaşılamıyor. Sipariş beklemede kaldı, stok düşülmedi. Birazdan tekrar dene.",
-        );
+        setSubmitError("Servis A'ya ulaşılamıyor. Sipariş beklemede kaldı, stok düşülmedi. Birazdan tekrar dene.");
       } else {
         setSubmitError(caught.message);
       }
@@ -107,149 +112,139 @@ function NewOrderForm() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Yükleniyor…</p>;
-
-  if (loadError) {
-    return (
-      <p role="alert" className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-        {loadError}
-      </p>
-    );
-  }
+  if (loading) return <LoadingState />;
+  if (loadError) return <ErrorState title="Veriler yüklenemedi" message={loadError} />;
 
   return (
-    <div>
-      <h1 className="text-xl font-semibold tracking-tight">Yeni sipariş</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Fiyatlar sistem tarafından hesaplanır, elle değiştirilemez.
-      </p>
+    <>
+      <PageToolbar description="Fiyatlar sistem tarafından hesaplanır, elle değiştirilemez." />
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <label htmlFor="customer" className="block text-sm font-medium text-slate-700">
-            Müşteri
-          </label>
-          <select
-            id="customer"
-            required
-            value={customerId}
-            onChange={(event) => setCustomerId(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-          >
-            <option value="">Müşteri seç…</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name} — {customer.email}
-              </option>
-            ))}
-          </select>
-          {customers.length === 0 && (
-            <p className="mt-2 text-sm text-amber-700">
-              Kayıtlı müşteri yok. Önce müşteri eklenmeli.
-            </p>
-          )}
-        </section>
+      <form onSubmit={handleSubmit} className="flex max-w-3xl flex-col gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Müşteri</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Field>
+              <FieldLabel htmlFor="customer" className="sr-only">
+                Müşteri
+              </FieldLabel>
+              <NativeSelect
+                id="customer"
+                required
+                className="w-full"
+                value={customerId}
+                onChange={(event) => setCustomerId(event.target.value)}
+              >
+                <NativeSelectOption value="">Müşteri seç…</NativeSelectOption>
+                {customers.map((customer) => (
+                  <NativeSelectOption key={customer.id} value={customer.id}>
+                    {customer.name} — {customer.email}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              {customers.length === 0 && (
+                <FieldDescription>
+                  Kayıtlı müşteri yok. <Link href="/customers/new">Önce müşteri ekle.</Link>
+                </FieldDescription>
+              )}
+            </Field>
+          </CardContent>
+        </Card>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <h2 className="text-sm font-medium text-slate-700">Kalemler</h2>
-
-          <div className="mt-3 space-y-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Kalemler</CardTitle>
+            <CardDescription>Aynı ürün tek satırda toplanır; seçilen ürün diğer satırların listesinden çıkar.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
             {lines.map((line, index) => {
               const product = productsById.get(line.productId);
-              const stokYetersiz = product ? line.quantity > product.stock_quantity : false;
+              const stockShort = product ? line.quantity > product.stock_quantity : false;
 
               return (
-                <div key={index} className="flex flex-wrap items-start gap-3">
-                  <div className="min-w-56 flex-1">
-                    <select
+                <div key={index} className="flex flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <NativeSelect
                       aria-label={`Kalem ${index + 1} ürünü`}
+                      className="min-w-56 flex-1"
                       value={line.productId}
                       onChange={(event) => updateLine(index, { productId: event.target.value })}
-                      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
                     >
-                      <option value="">Ürün seç…</option>
+                      <NativeSelectOption value="">Ürün seç…</NativeSelectOption>
                       {products
-                        // Aynı ürün iki ayrı kaleme bölünmesin, listeden düşürüyoruz.
                         .filter((item) => item.id === line.productId || !selectedIds.includes(item.id))
                         .map((item) => (
-                          <option key={item.id} value={item.id}>
+                          <NativeSelectOption key={item.id} value={item.id}>
                             {item.name} ({item.sku}) — {formatMoney(item.sale_price)} · stok {item.stock_quantity}
-                          </option>
+                          </NativeSelectOption>
                         ))}
-                    </select>
-                    {stokYetersiz && (
-                      <p className="mt-1 text-xs text-amber-700">
-                        Stokta {product?.stock_quantity} adet var, sipariş reddedilebilir.
-                      </p>
-                    )}
+                    </NativeSelect>
+
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      aria-label={`Kalem ${index + 1} adedi`}
+                      className="w-24"
+                      value={line.quantity}
+                      onChange={(event) => updateLine(index, { quantity: Math.max(1, Number(event.target.value) || 1) })}
+                    />
+
+                    <span className="w-28 text-right text-sm tabular-nums text-muted-foreground">
+                      {product ? formatMoney(product.sale_price * line.quantity) : "-"}
+                    </span>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Kalem ${index + 1} kaldır`}
+                      onClick={() => removeLine(index)}
+                      disabled={lines.length === 1}
+                    >
+                      <Trash2Icon />
+                    </Button>
                   </div>
 
-                  <input
-                    type="number"
-                    min={1}
-                    aria-label={`Kalem ${index + 1} adedi`}
-                    value={line.quantity}
-                    onChange={(event) =>
-                      updateLine(index, { quantity: Math.max(1, Number(event.target.value) || 1) })
-                    }
-                    className="w-24 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-                  />
-
-                  <span className="w-28 py-2 text-right text-sm tabular-nums text-slate-600">
-                    {product ? formatMoney(product.sale_price * line.quantity) : "-"}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => removeLine(index)}
-                    disabled={lines.length === 1}
-                    className="py-2 text-sm text-slate-400 hover:text-rose-600 disabled:opacity-30"
-                  >
-                    Kaldır
-                  </button>
+                  {stockShort && (
+                    <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                      <TriangleAlertIcon className="size-3.5" />
+                      Stokta {product?.stock_quantity} adet var, sipariş reddedilebilir.
+                    </p>
+                  )}
                 </div>
               );
             })}
-          </div>
 
-          <button
-            type="button"
-            onClick={addLine}
-            className="mt-4 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:border-slate-500"
-          >
-            + Ürün ekle
-          </button>
-
-          <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-4">
-            <span className="text-sm text-slate-500">Toplam</span>
+            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
+              <PlusIcon />
+              Ürün ekle
+            </Button>
+          </CardContent>
+          <CardFooter className="justify-between border-t">
+            <span className="text-sm text-muted-foreground">Toplam</span>
             <span className="text-lg font-semibold tabular-nums">{formatMoney(total)}</span>
-          </div>
-        </section>
+          </CardFooter>
+        </Card>
 
         {rejected && (
-          <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4">
-            <h3 className="text-sm font-medium text-rose-900">Sipariş reddedildi</h3>
-            <p className="mt-1 text-sm text-rose-800">{rejected}</p>
-            <Link href="/orders" className="mt-2 inline-block text-sm text-rose-900 underline">
-              Sipariş listesine git
-            </Link>
-          </div>
+          <Alert variant="destructive">
+            <CircleAlertIcon />
+            <AlertTitle>Sipariş reddedildi</AlertTitle>
+            <AlertDescription>
+              {rejected} <Link href="/orders">Sipariş listesine git</Link>
+            </AlertDescription>
+          </Alert>
         )}
 
-        {submitError && (
-          <p role="alert" className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {submitError}
-          </p>
-        )}
+        {submitError && <ErrorState title="Sipariş gönderilemedi" message={submitError} />}
 
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40"
-        >
+        <Button type="submit" disabled={!canSubmit} className="w-fit">
+          {submitting && <Spinner aria-label="Gönderiliyor" />}
           {submitting ? "Gönderiliyor…" : "Siparişi oluştur"}
-        </button>
+        </Button>
       </form>
-    </div>
+    </>
   );
 }

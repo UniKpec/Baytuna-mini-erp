@@ -78,7 +78,9 @@ bir öğe olarak çizdirmek için `asChild` yok, `render` kullanılıyor.
    ikon ve varsa roller. Kenar menü, aktif öğe vurgusu ve üst başlık buradan otomatik oluşur.
    Menüde olmayan bir sayfanın başlığı gerekiyorsa aynı dosyadaki `EXTRA_TITLES`'a ekle.
 3. Sayfaya ayrı menü, başlık çubuğu veya dış kenar boşluğu koyma; bunları `AppShell` sağlıyor.
-4. Renklerde sabit Tailwind renkleri (`slate-500` gibi) yerine tema değişkenlerini kullan:
+4. Yükleniyor, hata ve form sonucu için `components/states.tsx` içindeki `LoadingState`, `ErrorState` ve
+   `FormResultAlert`'i kullan; sayfanın üst satırı için `PageToolbar`. Böylece bütün ekranlar aynı davranır.
+5. Renklerde sabit Tailwind renkleri (`slate-500` gibi) yerine tema değişkenlerini kullan:
    `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `text-destructive`.
 
 ## Klasör yapısı
@@ -86,7 +88,7 @@ bir öğe olarak çizdirmek için `asChild` yok, `render` kullanılıyor.
 ```
 app/
   layout.tsx             fontlar, oturum sağlayıcı, AppShell
-  page.tsx               özet (yapay zekâ yorumu + soru kutusu)
+  page.tsx               dashboard: özet kartları, ciro grafiği, kritik stok, son siparişler, yapay zekâ
   login/                 giriş
   products/              ürün listesi · products/new: ürün ekleme (admin)
   stock/new/             stok girişi (depo)
@@ -101,6 +103,8 @@ components/
   login-form.tsx         giriş formu
   AuthProvider.tsx       token saklama, rol, çıkış
   ProtectedPage.tsx      giriş ve rol kontrolü
+  page-toolbar.tsx       sayfanın açıklama + eylem butonu satırı
+  states.tsx             yükleniyor, hata ve form sonucu durumları
   AiSummaryCard.tsx      yapay zekâ haftalık yorumu
   AskBox.tsx             verilere soru sorma kutusu
   StatusBadge.tsx        pending / confirmed / rejected rozeti

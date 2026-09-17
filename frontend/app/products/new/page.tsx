@@ -1,119 +1,108 @@
 "use client";
 
 import { useState } from "react";
+import { PageToolbar } from "@/components/page-toolbar";
 import { ProtectedPage } from "@/components/ProtectedPage";
-import { useAuth } from "@/components/AuthProvider";
-import { createProduct } from "@/lib/api";
+import { FormResultAlert, type FormResult } from "@/components/states";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { ApiError, createProduct } from "@/lib/api";
 
 export default function NewProductPage() {
-  const { claims } = useAuth();
+  return (
+    <ProtectedPage allowedRoles={["admin"]}>
+      <NewProductForm />
+    </ProtectedPage>
+  );
+}
 
+function NewProductForm() {
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [marginPercent, setMarginPercent] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
+  const [result, setResult] = useState<FormResult>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setSubmitting(true);
-    setMessage(null);
+    setResult(null);
 
     try {
-      await createProduct(
-        name,
-        sku,
-        Number(marginPercent)
-      );
-
-      setMessage("Ürün başarıyla eklendi.");
-
+      const product = await createProduct(name.trim(), sku.trim(), Number(marginPercent));
+      setResult({
+        type: "success",
+        title: "Ürün eklendi",
+        message: `${product.name} (${product.sku}). Satış fiyatı ilk stok girişinde otomatik hesaplanacak.`,
+      });
       setName("");
       setSku("");
       setMarginPercent("");
-    } catch (err) {
-      setMessage(
-        err instanceof Error ? err.message : "Ürün eklenemedi."
-      );
+    } catch (caught) {
+      setResult({
+        type: "error",
+        title: "Ürün eklenemedi",
+        message: caught instanceof ApiError ? caught.message : "Beklenmeyen bir hata oluştu.",
+      });
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (!claims) return null;
-
-  if (claims.role !== "admin") {
-    return (
-      <ProtectedPage>
-        <p>Bu sayfaya erişim yetkin yok.</p>
-      </ProtectedPage>
-    );
-  }
-
   return (
-    <ProtectedPage>
-      <div className="max-w-xl">
-        <h1 className="text-xl font-semibold">Yeni Ürün</h1>
+    <>
+      <PageToolbar description="Ürün kataloğuna yeni ürün tanımla." />
 
-        <form
-          onSubmit={handleSubmit}
-          className="mt-6 space-y-4"
-        >
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">
-              Ürün Adı
-            </label>
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Ürün bilgileri</CardTitle>
+          <CardDescription>
+            Fiyat girilmez: satış fiyatı, depo stok girdikçe ortalama maliyet ve bu marjla otomatik hesaplanır.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit}>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="name">Ürün adı</FieldLabel>
+                <Input id="name" required maxLength={255} value={name} onChange={(event) => setName(event.target.value)} />
+              </Field>
 
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-          </div>
+              <Field>
+                <FieldLabel htmlFor="sku">SKU</FieldLabel>
+                <Input id="sku" required maxLength={50} value={sku} onChange={(event) => setSku(event.target.value)} />
+                <FieldDescription>Her ürün için benzersiz stok kodu.</FieldDescription>
+              </Field>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">
-              SKU
-            </label>
+              <Field>
+                <FieldLabel htmlFor="margin">Kâr marjı (%)</FieldLabel>
+                {/* Sınırlar Servis A ile aynı: 0'dan büyük, en fazla 999. */}
+                <Input
+                  id="margin"
+                  type="number"
+                  inputMode="decimal"
+                  required
+                  min="0.01"
+                  max="999"
+                  step="0.01"
+                  value={marginPercent}
+                  onChange={(event) => setMarginPercent(event.target.value)}
+                />
+              </Field>
 
-            <input
-              type="text"
-              value={sku}
-              onChange={(e) => setSku(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-          </div>
+              <FormResultAlert result={result} />
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">
-              Marj (%)
-            </label>
-
-            <input
-              type="number"
-              value={marginPercent}
-              onChange={(e) => setMarginPercent(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-          >
-            {submitting ? "Ekleniyor..." : "Ürün Ekle"}
-          </button>
-
-          {message && (
-            <p className="text-sm text-slate-600">
-              {message}
-            </p>
-          )}
-        </form>
-      </div>
-    </ProtectedPage>
+              <Button type="submit" disabled={submitting} className="w-fit">
+                {submitting && <Spinner aria-label="Ekleniyor" />}
+                {submitting ? "Ekleniyor…" : "Ürün ekle"}
+              </Button>
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
+    </>
   );
 }
