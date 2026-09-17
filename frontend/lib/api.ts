@@ -1,6 +1,6 @@
 import { SERVICE_A_URL, SERVICE_B_URL } from "./config";
 import { getToken } from "./auth";
-import type { Customer, DailySummary, Order, Product, ReportAnswer } from "./types";
+import type { Customer, DailySummary, Order, Product, ReportAnswer, StockMovementResult } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -108,7 +108,7 @@ export function createStockMovement(
   quantity: number,
   unitCost: number
 ) {
-  return serviceA("/stock-movements", {
+  return serviceA<StockMovementResult>("/stock-movements", {
     method: "POST",
     body: {
       product_id: productId,
