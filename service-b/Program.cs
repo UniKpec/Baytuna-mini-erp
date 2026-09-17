@@ -6,8 +6,10 @@ using System.Text;
 using Microsoft.OpenApi;
 using ServiceB.Clients;
 using ServiceB.Data;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
