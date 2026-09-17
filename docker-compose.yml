@@ -10,6 +10,8 @@ services:
       Jwt__Secret: ${JWT_SECRET}
       Jwt__Issuer: ${JWT_ISSUER:-MiniErp.ServiceA}
       Jwt__Audience: ${JWT_AUDIENCE:-MiniErp.ServiceB}
+    volumes:
+      - invoice_pdf_data:/app/data/invoices
     depends_on:
       - postgres-b
 
@@ -66,3 +68,4 @@ services:
 volumes:
   postgres_b_data:
   postgres_a_data:
+  invoice_pdf_data:
