@@ -123,7 +123,7 @@ def test_stok_girisi_ortalama_maliyeti_ve_satis_fiyatini_gunceller(client, token
 
 
 def test_kullanici_olusturmak_admin_yetkisi_ister(client, tokens):
-    yeni = {"email": "yeni@test", "password": "sifre123", "role": "admin"}
+    yeni = {"email": "yeni@ornek.com.tr", "password": "sifre123", "role": "admin"}
 
     assert client.post("/auth/register", json=yeni).status_code == 401
     assert client.post("/auth/register", json=yeni, headers=tokens["sales"]).status_code == 403

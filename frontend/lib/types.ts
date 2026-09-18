@@ -115,3 +115,23 @@ export type StockMovementResult = {
     sale_price: number;
   };
 };
+
+// Servis A personel (kullanıcı) kaydı. Şifre hash'i hiçbir cevapta gelmez.
+export type StaffMember = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  /** Otomatik üretilen giriş adı; gerçek posta kutusu değil. */
+  email: string;
+  role: Role;
+  /** Bildirimlerin gittiği gerçek adres; boşsa kişiye mail gönderilmez. */
+  contact_email: string | null;
+  created_at: string | null;
+};
+
+export type StaffRole = "sales" | "warehouse";
+
+/** Şifre yalnızca oluşturma ve sıfırlama cevabında, bir kez döner. */
+export type CreatedStaffMember = StaffMember & { password: string };
+
+export type PasswordResetResult = { id: string; email: string; password: string };

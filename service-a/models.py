@@ -27,6 +27,12 @@ class User(Base):
     email = Column(String, unique=True)
     hashed_password = Column(String)
     role = Column(String)
+    first_name = Column(String(100))
+    last_name = Column(String(100))
+    # Giriş e-postası otomatik üretilen bir kullanıcı adı, gerçek posta kutusu değil;
+    # kritik stok gibi bildirimler bu gerçek adrese gönderilir.
+    contact_email = Column(String(255))
+    created_at = Column(DateTime(timezone=True), default=utc_now)
 
 
 class StockMovement(Base):

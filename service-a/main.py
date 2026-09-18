@@ -4,12 +4,12 @@ import time
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Annotated
+from typing import Annotated, Literal
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
 
 from database import get_db
 from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel, StockReservation as StockReservationModel
@@ -18,6 +18,7 @@ from mailer import send_critical_stock_alert, CRITICAL_STOCK_THRESHOLD
 from logging_setup import setup_logging
 from reports import fetch_orders, build_summary, build_question_context
 from ai import summarize_trends, answer_question, is_configured as ai_is_configured
+from staff import email_local_part, generate_password, unique_staff_email
 
 setup_logging()
 logger = logging.getLogger("service-a")
@@ -86,9 +87,23 @@ class StockReserveRequest(BaseModel):
 
 
 class UserRegister(BaseModel):
-    email: str
-    password: str
-    role: str
+    email: EmailStr
+    password: str = Field(min_length=8)
+    # Serbest metin olsaydı "depo" ya da "Warehouse" gibi bir rolle hesap açılır,
+    # frontend rolü tanımadığı için arayüz çökerdi.
+    role: Literal["admin", "sales", "warehouse"]
+
+
+PersonName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
+
+class StaffCreate(BaseModel):
+    first_name: PersonName
+    last_name: PersonName
+    # Personel ekranından yalnızca satış ve depo eklenir; admin hesabı bu yoldan açılmaz.
+    role: Literal["sales", "warehouse"]
+    # Kritik stok gibi bildirimler bu adrese gider; boşsa kişiye mail gönderilmez.
+    contact_email: EmailStr | None = None
 
 
 class UserLogin(BaseModel):
@@ -283,7 +298,9 @@ def reserve_stock(reservation: StockReserveRequest, background_tasks: Background
     ]
     if critical_products:
         warehouse_users = db.query(UserModel).filter(UserModel.role == "warehouse").all()
-        warehouse_emails = [user.email for user in warehouse_users]
+        # Giriş e-postaları otomatik üretilen kullanıcı adları, gerçek posta kutusu değil; oraya giden mail
+        # geri döner ve Resend hesabının itibarını düşürür. Bildirim yalnızca iletişim e-postasına gider.
+        warehouse_emails = [user.contact_email for user in warehouse_users if user.contact_email]
         background_tasks.add_task(send_critical_stock_alert, warehouse_emails, critical_products)
 
     return {
@@ -329,6 +346,73 @@ def ask_report(payload: ReportQuestion, request: Request, db: Session = Depends(
     if answer is None:
         raise HTTPException(status_code=503, detail="Yapay zekâ şu an yanıt veremiyor, birazdan tekrar dene.")
     return {"question": payload.question, "answer": answer}
+
+
+def staff_view(user: UserModel) -> dict:
+    # Şifre hash'i hiçbir cevapta dönmez.
+    return {
+        "id": user.id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "role": user.role,
+        "contact_email": user.contact_email,
+        "created_at": user.created_at,
+    }
+
+
+@app.get("/staff")
+def list_staff(db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    users = db.query(UserModel).order_by(UserModel.role, UserModel.email).all()
+    return [staff_view(user) for user in users]
+
+
+@app.post("/staff", status_code=201)
+def create_staff(payload: StaffCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    local_part = email_local_part(payload.first_name, payload.last_name)
+    if not local_part:
+        raise HTTPException(status_code=400, detail="Ad ve soyad en az bir harf veya rakam içermeli.")
+
+    email = unique_staff_email(
+        local_part,
+        lambda candidate: db.query(UserModel).filter(UserModel.email == candidate).first() is not None,
+    )
+    password = generate_password()
+
+    new_user = UserModel(
+        email=email,
+        hashed_password=hash_password(password),
+        role=payload.role,
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+        contact_email=payload.contact_email,
+    )
+    db.add(new_user)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Aynı isimle tam aynı anda iki kayıt gelirse ikincisi unique kısıta takılır.
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Bu e-posta az önce başka bir kayda verildi, tekrar dene.")
+    db.refresh(new_user)
+
+    # Şifre yalnızca bu cevapta düz metin olarak dönüyor; veritabanında sadece hash'i duruyor.
+    return {**staff_view(new_user), "password": password}
+
+
+@app.post("/staff/{user_id}/reset-password")
+def reset_staff_password(user_id: uuid.UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Personel bulunamadı.")
+    # Admin şifresi bu ekrandan sıfırlanmaz: admin yanlışlıkla kendini ya da diğer admini dışarıda bırakmasın.
+    if user.role not in ("sales", "warehouse"):
+        raise HTTPException(status_code=400, detail="Yalnızca satış ve depo personelinin şifresi sıfırlanabilir.")
+
+    password = generate_password()
+    user.hashed_password = hash_password(password)
+    db.commit()
+    return {"id": user.id, "email": user.email, "password": password}
 
 
 # Kullanıcı oluşturmak Admin'in işi. İlk Admin seed.py ile yaratılıyor;
