@@ -1,6 +1,17 @@
 import { SERVICE_A_URL, SERVICE_B_URL } from "./config";
 import { clearToken, getToken } from "./auth";
-import type { Customer, DailySummary, Order, Product, ReportAnswer, StockMovementResult } from "./types";
+import type {
+  CreatedStaffMember,
+  Customer,
+  DailySummary,
+  Order,
+  PasswordResetResult,
+  Product,
+  ReportAnswer,
+  StaffMember,
+  StaffRole,
+  StockMovementResult,
+} from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -133,6 +144,21 @@ export function getDailySummary() {
 
 export function askReport(question: string) {
   return serviceA<ReportAnswer>("/reports/ask", { method: "POST", body: { question } });
+}
+
+export function getStaff() {
+  return serviceA<StaffMember[]>("/staff");
+}
+
+export function createStaff(firstName: string, lastName: string, role: StaffRole, contactEmail: string | null) {
+  return serviceA<CreatedStaffMember>("/staff", {
+    method: "POST",
+    body: { first_name: firstName, last_name: lastName, role, contact_email: contactEmail },
+  });
+}
+
+export function resetStaffPassword(id: string) {
+  return serviceA<PasswordResetResult>(`/staff/${id}/reset-password`, { method: "POST" });
 }
 
 // --- Servis B ---

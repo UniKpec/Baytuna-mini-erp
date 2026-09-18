@@ -1,5 +1,6 @@
 import {
   CirclePlusIcon,
+  IdCardIcon,
   LayoutDashboardIcon,
   PackageIcon,
   PackagePlusIcon,
@@ -28,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/orders", label: "Siparişler", icon: ShoppingCartIcon },
   { href: "/orders/new", label: "Yeni Sipariş", icon: CirclePlusIcon, roles: ["sales"] },
   { href: "/customers", label: "Müşteriler", icon: UsersIcon, roles: ["sales", "admin"] },
+  { href: "/staff", label: "Personel", icon: IdCardIcon, roles: ["admin"] },
 ];
 
 // Menüde olmayan sayfalar da başlıkta doğru adla görünsün.
