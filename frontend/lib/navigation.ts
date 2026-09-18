@@ -27,7 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/stock/new", label: "Stok Girişi", icon: WarehouseIcon, roles: ["warehouse"] },
   { href: "/orders", label: "Siparişler", icon: ShoppingCartIcon },
   { href: "/orders/new", label: "Yeni Sipariş", icon: CirclePlusIcon, roles: ["sales"] },
-  { href: "/customers", label: "Müşteriler", icon: UsersIcon },
+  { href: "/customers", label: "Müşteriler", icon: UsersIcon, roles: ["sales", "admin"] },
 ];
 
 // Menüde olmayan sayfalar da başlıkta doğru adla görünsün.

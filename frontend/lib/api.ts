@@ -1,5 +1,5 @@
 import { SERVICE_A_URL, SERVICE_B_URL } from "./config";
-import { getToken } from "./auth";
+import { clearToken, getToken } from "./auth";
 import type { Customer, DailySummary, Order, Product, ReportAnswer, StockMovementResult } from "./types";
 
 export class ApiError extends Error {
@@ -17,6 +17,8 @@ type RequestOptions = {
   method?: string;
   body?: unknown;
   auth?: boolean;
+  /** "blob": dosya indirmeleri (PDF) için; hata ve 401 yönetimi JSON isteklerle aynı yoldan geçer. */
+  responseType?: "json" | "blob";
 };
 
 /** Backend'in döndürdüğü hata gövdesinden okunabilir bir mesaj çıkarır.
@@ -34,7 +36,7 @@ function errorMessage(status: number, body: unknown): string {
 }
 
 async function request<T>(baseUrl: string, path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, auth = true } = options;
+  const { method = "GET", body, auth = true, responseType = "json" } = options;
   const headers: Record<string, string> = {};
 
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -55,6 +57,10 @@ async function request<T>(baseUrl: string, path: string, options: RequestOptions
     throw new ApiError(0, "Sunucuya ulaşılamıyor. Servis ayakta mı?", null);
   }
 
+  if (response.ok && responseType === "blob") {
+    return (await response.blob()) as T;
+  }
+
   const text = await response.text();
   let payload: unknown = null;
   if (text) {
@@ -66,6 +72,9 @@ async function request<T>(baseUrl: string, path: string, options: RequestOptions
   }
 
   if (!response.ok) {
+    // Token sunucu tarafında geçersizse (süresi doldu, secret değişti) tutmanın anlamı yok;
+    // silinince ProtectedPage bunu fark edip giriş ekranına yönlendirir.
+    if (response.status === 401 && auth) clearToken();
     throw new ApiError(response.status, errorMessage(response.status, payload), payload);
   }
   return payload as T;
@@ -157,4 +166,9 @@ export function getOrders() {
 
 export function getOrder(id: string) {
   return serviceB<Order>(`/api/orders/${id}`);
+}
+
+/** Düz bir <a href> JWT gönderemediği için PDF token'la çekilip Blob olarak dönüyor. */
+export function downloadInvoicePdf(invoiceId: string) {
+  return serviceB<Blob>(`/api/invoices/${invoiceId}/pdf`, { responseType: "blob" });
 }

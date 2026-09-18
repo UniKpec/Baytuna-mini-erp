@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeftIcon, CircleAlertIcon, ClockIcon } from "lucide-react";
+import { ArrowLeftIcon, CircleAlertIcon, ClockIcon, DownloadIcon } from "lucide-react";
 import { ProtectedPage } from "@/components/ProtectedPage";
 import { ErrorState, LoadingState } from "@/components/states";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError, getOrder } from "@/lib/api";
+import { ApiError, downloadInvoicePdf, getOrder } from "@/lib/api";
 import { formatDate, formatMoney } from "@/lib/format";
-import type { Order } from "@/lib/types";
+import type { Invoice, Order } from "@/lib/types";
 
 export default function OrderDetailPage() {
   return (
@@ -130,28 +131,82 @@ function OrderContent({ order, loading, error }: { order: Order | null; loading:
         </Table>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Fatura</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {order.invoice ? (
-            <dl className="grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
-              <Row label="Fatura no" value={<span className="font-mono text-xs">{order.invoice.invoiceNumber}</span>} />
-              <Row label="Tarih" value={formatDate(order.invoice.createdAt)} />
-              <Row label="Tutar" value={formatMoney(order.invoice.totalAmount)} />
-              <Row label="PDF" value={order.invoice.pdfPath ? "Hazır" : "Henüz hazır değil"} />
-            </dl>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {order.status === "confirmed"
-                ? "Fatura bilgisi bu yanıtta gelmiyor."
-                : "Fatura yalnızca onaylanmış siparişler için oluşur."}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <InvoiceCard order={order} />
     </>
+  );
+}
+
+function InvoiceCard({ order }: { order: Order }) {
+  const invoice = order.invoice;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Fatura</CardTitle>
+        {invoice && (
+          <CardAction>
+            <InvoiceDownloadButton invoice={invoice} />
+          </CardAction>
+        )}
+      </CardHeader>
+      <CardContent>
+        {invoice ? (
+          <dl className="grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
+            <Row label="Fatura no" value={<span className="font-mono text-xs">{invoice.invoiceNumber}</span>} />
+            <Row label="Tarih" value={formatDate(invoice.createdAt)} />
+            <Row label="Tutar" value={formatMoney(invoice.totalAmount)} />
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {order.status === "confirmed"
+              ? "Fatura bilgisi bu yanıtta gelmiyor."
+              : "Fatura yalnızca onaylanmış siparişler için oluşur."}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function InvoiceDownloadButton({ invoice }: { invoice: Invoice }) {
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDownload() {
+    setDownloading(true);
+    setError(null);
+    try {
+      const pdf = await downloadInvoicePdf(invoice.id);
+      const url = URL.createObjectURL(pdf);
+      const link = document.createElement("a");
+      link.href = url;
+      // Servis B dosya adını Content-Disposition'da veriyor ama CORS o başlığı tarayıcıya açmıyor;
+      // adı fatura numarasından kendimiz üretiyoruz.
+      link.download = `${invoice.invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // Tarayıcı indirmeyi başlatmadan adresi iptal edersek dosya inmeyebilir.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "PDF indirilemedi.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button variant="outline" size="sm" onClick={handleDownload} disabled={downloading}>
+        {downloading ? <Spinner aria-label="PDF hazırlanıyor" /> : <DownloadIcon />}
+        {downloading ? "Hazırlanıyor…" : "PDF indir"}
+      </Button>
+      {error && (
+        <p role="alert" className="max-w-56 text-right text-xs text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -14,7 +14,7 @@ import { ApiError, createCustomer } from "@/lib/api";
 
 export default function NewCustomerPage() {
   return (
-    <ProtectedPage>
+    <ProtectedPage allowedRoles={["sales", "admin"]}>
       <NewCustomerForm />
     </ProtectedPage>
   );
