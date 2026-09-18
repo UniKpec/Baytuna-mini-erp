@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckIcon, CopyIcon, KeyRoundIcon, TriangleAlertIcon, UserPlusIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, KeyRoundIcon, Trash2Icon, TriangleAlertIcon, UserPlusIcon } from "lucide-react";
 import { PageToolbar } from "@/components/page-toolbar";
 import { ProtectedPage } from "@/components/ProtectedPage";
 import { ErrorState, LoadingState } from "@/components/states";
@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError, createStaff, getStaff, resetStaffPassword } from "@/lib/api";
+import { ApiError, createStaff, deleteStaff, getStaff, resetStaffPassword } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { ROLE_LABELS, type CreatedStaffMember, type Role, type StaffMember, type StaffRole } from "@/lib/types";
 
@@ -84,6 +84,12 @@ function StaffManagement() {
     showCredentials({ name: fullName(member), email: member.email, password, reason: "reset" });
   }
 
+  function handleDeleted(member: StaffMember) {
+    setStaff((current) => current.filter((item) => item.id !== member.id));
+    // Silinen kişinin giriş bilgisi ekranda duruyorsa artık geçersiz; kaldırıyoruz.
+    setCredentials((current) => (current?.email === member.email ? null : current));
+  }
+
   return (
     <>
       <PageToolbar description="Satış ve depo personeli ekle. Giriş e-postası ve şifre otomatik oluşturulur." />
@@ -102,7 +108,7 @@ function StaffManagement() {
           <HowItWorksCard />
         </div>
 
-        <StaffTable staff={staff} loading={loading} error={loadError} onReset={handleReset} />
+        <StaffTable staff={staff} loading={loading} error={loadError} onReset={handleReset} onDeleted={handleDeleted} />
       </div>
     </>
   );
@@ -293,11 +299,13 @@ function StaffTable({
   loading,
   error,
   onReset,
+  onDeleted,
 }: {
   staff: StaffMember[];
   loading: boolean;
   error: string | null;
   onReset: (member: StaffMember, password: string) => void;
+  onDeleted: (member: StaffMember) => void;
 }) {
   if (loading) return <LoadingState />;
   if (error) return <ErrorState title="Personel listesi yüklenemedi" message={error} />;
@@ -330,7 +338,12 @@ function StaffTable({
               </TableCell>
               <TableCell className="text-muted-foreground">{formatDate(member.created_at)}</TableCell>
               <TableCell className="pr-4 text-right">
-                {member.role !== "admin" && <ResetPasswordButton member={member} onReset={onReset} />}
+                {member.role !== "admin" && (
+                  <div className="flex justify-end gap-1">
+                    <ResetPasswordButton member={member} onReset={onReset} />
+                    <DeleteStaffButton member={member} onDeleted={onDeleted} />
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -398,6 +411,60 @@ function ResetPasswordButton({
           <Button onClick={handleConfirm} disabled={resetting}>
             {resetting && <Spinner aria-label="Sıfırlanıyor" />}
             Şifreyi sıfırla
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function DeleteStaffButton({ member, onDeleted }: { member: StaffMember; onDeleted: (member: StaffMember) => void }) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) setError(null);
+  }
+
+  async function handleConfirm() {
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteStaff(member.id);
+      setOpen(false);
+      onDeleted(member);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Personel silinemedi.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
+      <AlertDialogTrigger
+        render={<Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" />}
+      >
+        <Trash2Icon />
+        Sil
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{fullName(member)} silinsin mi?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <span className="font-mono">{member.email}</span> hesabıyla artık giriş yapılamaz ve bildirim gönderilmez.
+            Girdiği stok hareketleri ve siparişler kayıtlarda korunur. Açık bir oturumu varsa en geç 1 saat içinde
+            kapanır.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error && <ErrorState title="Personel silinemedi" message={error} />}
+        <AlertDialogFooter>
+          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+          <Button variant="destructive" onClick={handleConfirm} disabled={deleting}>
+            {deleting && <Spinner aria-label="Siliniyor" />}
+            Sil
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

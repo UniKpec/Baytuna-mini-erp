@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, EmailStr, Field, StringConstraints
 
 from database import get_db
-from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel, StockReservation as StockReservationModel
+from models import Product as ProductModel, User as UserModel, StockMovement as StockMovementModel, StockReservation as StockReservationModel, utc_now
 from auth import verify_password, create_access_token, hash_password, require_admin, require_warehouse, require_sales, get_current_user, read_token_claims
 from mailer import send_critical_stock_alert, CRITICAL_STOCK_THRESHOLD
 from logging_setup import setup_logging
@@ -297,7 +297,11 @@ def reserve_stock(reservation: StockReserveRequest, background_tasks: Background
         if product.stock_quantity < CRITICAL_STOCK_THRESHOLD
     ]
     if critical_products:
-        warehouse_users = db.query(UserModel).filter(UserModel.role == "warehouse").all()
+        warehouse_users = (
+            db.query(UserModel)
+            .filter(UserModel.role == "warehouse", UserModel.deleted_at.is_(None))
+            .all()
+        )
         # Giriş e-postaları otomatik üretilen kullanıcı adları, gerçek posta kutusu değil; oraya giden mail
         # geri döner ve Resend hesabının itibarını düşürür. Bildirim yalnızca iletişim e-postasına gider.
         warehouse_emails = [user.contact_email for user in warehouse_users if user.contact_email]
@@ -363,7 +367,7 @@ def staff_view(user: UserModel) -> dict:
 
 @app.get("/staff")
 def list_staff(db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
-    users = db.query(UserModel).order_by(UserModel.role, UserModel.email).all()
+    users = db.query(UserModel).filter(UserModel.deleted_at.is_(None)).order_by(UserModel.role, UserModel.email).all()
     return [staff_view(user) for user in users]
 
 
@@ -375,6 +379,8 @@ def create_staff(payload: StaffCreate, db: Session = Depends(get_db), current_us
 
     email = unique_staff_email(
         local_part,
+        # Silinmiş hesapların adresleri de dolu sayılır: aynı isimle gelen yeni kişi başka bir adres alır,
+        # geçmiş kayıtlarda iki farklı kişi aynı e-postayla karışmaz.
         lambda candidate: db.query(UserModel).filter(UserModel.email == candidate).first() is not None,
     )
     password = generate_password()
@@ -400,11 +406,29 @@ def create_staff(payload: StaffCreate, db: Session = Depends(get_db), current_us
     return {**staff_view(new_user), "password": password}
 
 
-@app.post("/staff/{user_id}/reset-password")
-def reset_staff_password(user_id: uuid.UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+def get_active_staff(db: Session, user_id: uuid.UUID) -> UserModel:
+    user = db.query(UserModel).filter(UserModel.id == user_id, UserModel.deleted_at.is_(None)).first()
     if user is None:
         raise HTTPException(status_code=404, detail="Personel bulunamadı.")
+    return user
+
+
+@app.delete("/staff/{user_id}", status_code=204)
+def delete_staff(user_id: uuid.UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    user = get_active_staff(db, user_id)
+    # Admin hesabı bu ekrandan silinmez: sistemde admin kalmazsa kimse personel ekleyemez.
+    if user.role not in ("sales", "warehouse"):
+        raise HTTPException(status_code=400, detail="Yalnızca satış ve depo personeli silinebilir.")
+
+    # Kayıt kaldırılmıyor, kapatılıyor: stok hareketleri ve siparişler bu kullanıcıya bağlı.
+    user.deleted_at = utc_now()
+    db.commit()
+    logger.info("personel silindi", extra={"staff_id": str(user.id), "admin_id": current_user.get("user_id")})
+
+
+@app.post("/staff/{user_id}/reset-password")
+def reset_staff_password(user_id: uuid.UUID, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    user = get_active_staff(db, user_id)
     # Admin şifresi bu ekrandan sıfırlanmaz: admin yanlışlıkla kendini ya da diğer admini dışarıda bırakmasın.
     if user.role not in ("sales", "warehouse"):
         raise HTTPException(status_code=400, detail="Yalnızca satış ve depo personelinin şifresi sıfırlanabilir.")
@@ -437,7 +461,8 @@ def register(user: UserRegister, db: Session = Depends(get_db), current_user: di
 @app.post("/auth/login")
 def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user = db.query(UserModel).filter(UserModel.email == credentials.email).first()
-    if user is None or not verify_password(credentials.password, user.hashed_password):
+    # Silinmiş hesap için de aynı mesaj: hesabın var olup olmadığı dışarıya sızmasın.
+    if user is None or user.deleted_at is not None or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Email veya şifre hatalı.")
 
     token = create_access_token(user_id=str(user.id), role=user.role)

@@ -33,6 +33,9 @@ class User(Base):
     # kritik stok gibi bildirimler bu gerçek adrese gönderilir.
     contact_email = Column(String(255))
     created_at = Column(DateTime(timezone=True), default=utc_now)
+    # Personel silindiğinde kayıt kaldırılmaz, bu alan dolar: stok hareketleri (created_by) ve Servis B'deki
+    # siparişler bu kullanıcıya bağlı kalır, "bunu kim girdi" bilgisi kaybolmaz. Dolu olan hesap giriş yapamaz.
+    deleted_at = Column(DateTime(timezone=True))
 
 
 class StockMovement(Base):

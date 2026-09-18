@@ -94,7 +94,7 @@ app/
   stock/new/             stok girişi (depo)
   orders/                sipariş listesi · orders/new: oluşturma · orders/[id]: detay + fatura
   customers/             müşteri listesi · customers/new: ekleme (satış, admin)
-  staff/                 personel yönetimi: ekleme, otomatik e-posta/şifre, şifre sıfırlama (admin)
+  staff/                 personel yönetimi: ekleme, otomatik e-posta/şifre, şifre sıfırlama, silme (admin)
 components/
   app-shell.tsx          kenar menülü ana düzen; giriş ekranında ve oturum yokken devre dışı
   app-sidebar.tsx        kenar menü (logo, menü, kullanıcı)

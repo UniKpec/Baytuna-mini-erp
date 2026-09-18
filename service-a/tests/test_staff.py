@@ -153,3 +153,71 @@ def test_kritik_stok_maili_yalnizca_iletisim_epostasina_gider(client, tokens, pr
     assert response.status_code == 200
     # users fixture'ındaki depo@test'in iletişim adresi yok: ona mail gitmez, geri dönen mail de olmaz.
     assert gonderilen["to"] == ["gercek@ornek.com.tr"]
+
+
+# --- DELETE /staff/{id} ---
+
+
+def test_silinen_personel_giris_yapamaz_ve_listeden_kalkar(client, tokens):
+    personel = personel_ekle(client, tokens).json()
+
+    assert client.delete(f"/staff/{personel['id']}", headers=tokens["admin"]).status_code == 204
+
+    giris = client.post("/auth/login", json={"email": personel["email"], "password": personel["password"]})
+    assert giris.status_code == 401
+    # Silinmiş hesap için de "şifre hatalı" ile aynı mesaj: hesabın var olduğu anlaşılmasın.
+    assert giris.json()["detail"] == "Email veya şifre hatalı."
+    liste = client.get("/staff", headers=tokens["admin"]).json()
+    assert personel["id"] not in [kayit["id"] for kayit in liste]
+
+
+def test_silinen_personelin_kaydi_ve_stok_gecmisi_korunur(client, tokens, users, product, db_session):
+    giris_yapan_depo = users["warehouse"]
+    hareket = client.post(
+        "/stock-movements",
+        json={"product_id": str(product.id), "quantity": 3, "unit_cost": "10.00"},
+        headers=tokens["warehouse"],
+    )
+    assert hareket.status_code in (200, 201)
+
+    assert client.delete(f"/staff/{giris_yapan_depo.id}", headers=tokens["admin"]).status_code == 204
+
+    db_session.expire_all()
+    kayit = db_session.get(User, giris_yapan_depo.id)
+    assert kayit is not None
+    assert kayit.deleted_at is not None
+
+
+def test_silinen_personelin_adresi_yeni_kisiye_verilmez(client, tokens):
+    ilk = personel_ekle(client, tokens).json()
+    client.delete(f"/staff/{ilk['id']}", headers=tokens["admin"])
+
+    yeni = personel_ekle(client, tokens).json()
+
+    assert yeni["email"] == f"ayse.yilmaz2@{STAFF_EMAIL_DOMAIN}"
+
+
+def test_personel_silme_sinirlari(client, tokens, users):
+    personel = personel_ekle(client, tokens).json()
+
+    assert client.delete(f"/staff/{personel['id']}").status_code == 401
+    assert client.delete(f"/staff/{personel['id']}", headers=tokens["sales"]).status_code == 403
+    assert client.delete(f"/staff/{users['admin'].id}", headers=tokens["admin"]).status_code == 400
+    assert client.delete(f"/staff/{uuid.uuid4()}", headers=tokens["admin"]).status_code == 404
+
+    assert client.delete(f"/staff/{personel['id']}", headers=tokens["admin"]).status_code == 204
+    # İkinci silme ve silinmiş kişinin şifresini sıfırlama: kayıt artık "yok" sayılır.
+    assert client.delete(f"/staff/{personel['id']}", headers=tokens["admin"]).status_code == 404
+    assert client.post(f"/staff/{personel['id']}/reset-password", headers=tokens["admin"]).status_code == 404
+
+
+def test_silinen_depo_personeline_kritik_stok_maili_gitmez(client, tokens, product, monkeypatch):
+    personel = personel_ekle(client, tokens, contact_email="eski@ornek.com.tr").json()
+    client.delete(f"/staff/{personel['id']}", headers=tokens["admin"])
+    gonderilen = {}
+    monkeypatch.setattr(main, "send_critical_stock_alert", lambda to, products: gonderilen.update(to=to))
+
+    govde = {"reservationId": str(uuid.uuid4()), "items": [{"productId": str(product.id), "quantity": 1}]}
+    assert client.post("/internal/stock/reserve", json=govde, headers=tokens["sales"]).status_code == 200
+
+    assert "eski@ornek.com.tr" not in gonderilen.get("to", [])

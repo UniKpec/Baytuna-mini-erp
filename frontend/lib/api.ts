@@ -161,6 +161,10 @@ export function resetStaffPassword(id: string) {
   return serviceA<PasswordResetResult>(`/staff/${id}/reset-password`, { method: "POST" });
 }
 
+export function deleteStaff(id: string) {
+  return serviceA<null>(`/staff/${id}`, { method: "DELETE" });
+}
+
 // --- Servis B ---
 
 export function getCustomers() {
