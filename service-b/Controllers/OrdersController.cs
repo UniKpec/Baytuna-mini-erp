@@ -3,6 +3,7 @@ using ServiceB.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using ServiceB.Clients;
+using ServiceB.Services;
 
 
 namespace ServiceB.Controllers;
@@ -16,13 +17,17 @@ public class OrdersController : ControllerBase
     private readonly IProductCatalogClient _productCatalogClient;
     private readonly IStockReservationClient _stockReservationClient;
     private readonly ILogger<OrdersController> _logger;
+    private readonly IEmailService _emailService;
+    private readonly IInvoicePdfService _invoicePdfService;
 
-    public OrdersController(AppDbContext context, IProductCatalogClient productCatalogClient, IStockReservationClient stockReservationClient, ILogger<OrdersController> logger)
+    public OrdersController(AppDbContext context, IProductCatalogClient productCatalogClient, IStockReservationClient stockReservationClient, ILogger<OrdersController> logger, IEmailService emailService, IInvoicePdfService invoicePdfService)
     {
         _context = context;
         _productCatalogClient = productCatalogClient;
         _stockReservationClient = stockReservationClient;
         _logger = logger;
+        _emailService = emailService;
+        _invoicePdfService = invoicePdfService;
     }
 
     [Authorize(Roles = "sales")]
@@ -36,10 +41,10 @@ public class OrdersController : ControllerBase
             return Unauthorized("Token içindeki user_id geçersiz");
         }
 
-        var customerExists = await _context.Customers
-            .AnyAsync(c => c.Id == request.CustomerId);
+        var customer = await _context.Customers
+            .FirstOrDefaultAsync(c => c.Id == request.CustomerId);
 
-        if (!customerExists)
+        if (customer is null)
         {
             return BadRequest("Geçersiz customerId.");
         }
@@ -140,12 +145,14 @@ public class OrdersController : ControllerBase
             );
         }
 
+        Invoice? invoice = null;
+
         if (reservationResult.Status == StockReservationStatus.Success)
         {
             order.Status = "confirmed";
             order.UpdatedAt = DateTime.UtcNow;
 
-            var invoice = new Invoice
+            invoice = new Invoice
             {
                 Id = Guid.NewGuid(),
                 OrderId = order.Id,
@@ -167,6 +174,33 @@ public class OrdersController : ControllerBase
         }
 
         await _context.SaveChangesAsync();
+
+        if (order.Status == "confirmed" && invoice is not null)
+        {
+            try
+            {
+                var pdfBytes = await _invoicePdfService.GenerateAndSaveAsync(invoice);
+
+                await _context.SaveChangesAsync();
+
+                await _emailService.SendOrderConfirmationAsync(
+                    customer.Email,
+                    customer.Name,
+                    invoice.InvoiceNumber,
+                    invoice.TotalAmount,
+                    pdfBytes
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Sipariş onay maili gönderilemedi. OrderId: {OrderId}, InvoiceId: {InvoiceId}",
+                    order.Id,
+                    invoice.Id
+                );
+            }
+        }
 
         if (order.Status == "confirmed")
         {

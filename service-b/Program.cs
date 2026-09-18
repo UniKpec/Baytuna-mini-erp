@@ -7,6 +7,8 @@ using Microsoft.OpenApi;
 using ServiceB.Clients;
 using ServiceB.Data;
 using QuestPDF.Infrastructure;
+using ServiceB.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 QuestPDF.Settings.License = LicenseType.Community;
@@ -38,6 +40,12 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<ForwardAuthorizationHeaderHandler>();
 
 builder.Services.AddControllers();
+
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("Email")
+);
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IInvoicePdfService, InvoicePdfService>();
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -76,7 +84,7 @@ builder.Services.AddHttpClient<IStockReservationClient, StockReservationClient>(
         builder.Configuration["ServiceA:BaseUrl"]!
     );
 })
-.AddHttpMessageHandler<ForwardAuthorizationHeaderHandler>();;
+.AddHttpMessageHandler<ForwardAuthorizationHeaderHandler>();
 
 builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
