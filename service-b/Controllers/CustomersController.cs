@@ -7,7 +7,8 @@ namespace ServiceB.Controllers;
 
 
 [ApiController]
-[Authorize]
+// Müşteri yönetimi satış ve admin'in işi; depo müşteri verisine (e-posta, telefon) erişmemeli.
+[Authorize(Roles = "sales,admin")]
 [Route("api/[controller]")]
 public class CustomersController : ControllerBase
 {

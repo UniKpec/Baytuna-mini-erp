@@ -6,7 +6,7 @@ import { ShieldAlertIcon } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { LoadingState } from "./states";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { getToken } from "@/lib/auth";
+import { ensureValidToken } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/types";
 
 type Props = {
@@ -20,10 +20,11 @@ export function ProtectedPage({ children, allowedRoles }: Props) {
   const router = useRouter();
 
   useEffect(() => {
-    // localStorage'ı doğrudan okuyoruz: hydration sırasında context henüz
-    // dolmamış olabilir, bu kontrol her zaman doğru cevabı verir.
-    if (!getToken()) router.replace("/login");
-  }, [router]);
+    // localStorage'ı doğrudan okuyoruz: hydration sırasında context henüz dolmamış olabilir.
+    // Yalnızca "token var mı" değil "geçerli mi" diye bakılıyor; süresi dolmuş token burada silinir.
+    // claims bağımlılığı: oturum sayfa açıkken düşerse (API 401 döndü) kontrol yeniden çalışsın.
+    if (!ensureValidToken()) router.replace("/login");
+  }, [claims, router]);
 
   if (!claims) {
     // Token okunana kadar (ya da giriş sayfasına yönlenene kadar) içerik sızmasın.

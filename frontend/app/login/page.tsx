@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { LoginForm } from "@/components/login-form";
-import { getToken } from "@/lib/auth";
+import { ensureValidToken } from "@/lib/auth";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -13,7 +13,8 @@ export default function LoginPage() {
 
   // Zaten giriş yapmışsa giriş ekranında oyalanmasın.
   useEffect(() => {
-    if (getToken()) router.replace("/");
+    // Süresi dolmuş token'la ana sayfaya gönderirsek kullanıcı giriş ekranına hiç ulaşamaz.
+    if (ensureValidToken()) router.replace("/");
   }, [router]);
 
   async function handleLogin(email: string, password: string) {

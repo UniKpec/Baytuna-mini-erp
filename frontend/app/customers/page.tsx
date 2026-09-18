@@ -16,7 +16,7 @@ import type { Customer } from "@/lib/types";
 
 export default function CustomersPage() {
   return (
-    <ProtectedPage>
+    <ProtectedPage allowedRoles={["sales", "admin"]}>
       <CustomerList />
     </ProtectedPage>
   );

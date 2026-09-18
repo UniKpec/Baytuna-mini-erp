@@ -61,3 +61,18 @@ export function readClaims(token: string): Claims | null {
 export function isExpired(claims: Claims): boolean {
   return claims.exp * 1000 <= Date.now();
 }
+
+/** Çözülebilen ve süresi dolmamış bir token var mı? Yoksa kalıntıyı siler.
+ *  Yan etkisi olduğu için yalnızca effect'lerde ve olay işleyicilerinde çağır, render sırasında değil. */
+export function ensureValidToken(): boolean {
+  const token = getToken();
+  if (!token) return false;
+
+  const claims = readClaims(token);
+  if (claims && !isExpired(claims)) return true;
+
+  // Süresi dolmuş ya da bozuk token bırakılırsa korumalı sayfa "Yükleniyor"da takılı kalır
+  // ve giriş sayfası da kullanıcıyı ana sayfaya geri gönderir.
+  clearToken();
+  return false;
+}
